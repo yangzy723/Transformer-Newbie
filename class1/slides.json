@@ -1,0 +1,193 @@
+[
+  {
+    "title": "Transformer：从一句话到下一个 token",
+    "section": "01 / 建立问题",
+    "minutes": 2,
+    "kind": "opening",
+    "bullets": ["第一节课 · 60 分钟 · Python 入门即可", "你已经会的：看代码、运行函数", "今天新认识的：向量、Attention、预测与训练"],
+    "callout": "开场：我喜欢喝 ____。你会填什么？",
+    "notes": "先让同学给出两个答案，例如茶、牛奶。追问：为什么不是桌子？借此建立上下文影响候选词的直觉。强调：机器需要用数字表达这种选择，本课只解决从文本到下一 token 的主线。"
+  },
+  {
+    "title": "下课时，你能做到三件事",
+    "section": "01 / 建立问题",
+    "minutes": 3,
+    "kind": "goals",
+    "bullets": ["画出：token → 向量 → Transformer → 概率", "解释：Attention 怎样混合其他位置的信息", "运行：一个小模型的训练与逐步生成"],
+    "callout": "会讲清数据的流动，比背下所有术语更重要。",
+    "notes": "说明每个环节都配一个具体输出。向量先理解成一个数字列表，矩阵先理解成多个列表。梯度和优化器今天只讲功能，下一节再展开。让同学复述本节最终要回答的问题：模型如何根据前文预测下一个 token？"
+  },
+  {
+    "title": "生成文本，先预测一个 token",
+    "section": "02 / 语言模型的任务",
+    "minutes": 3,
+    "kind": "probability",
+    "bullets": ["输入前文：我 喜欢 喝", "输出：整个词表上的概率分布", "选择一个 token，接回前文，再预测一次"],
+    "callout": "示意概率：茶 0.60 · 牛奶 0.30 · 其他 0.10",
+    "notes": "这组概率是解释任务的人造例子，不是实测。词表是模型能输出的 token 集合。每个 token 都有一个候选概率，它们加起来为 1。生成选出的 token 会成为下一步的输入；整段回复是多步结果。"
+  },
+  {
+    "title": "训练有答案，生成要自己接着写",
+    "section": "02 / 语言模型的任务",
+    "minutes": 4,
+    "kind": "shift",
+    "bullets": ["训练：用完整句子构造错开一位的输入和标签", "每个位置预测右边的 token，统计误差", "生成：只有当前前文，逐步增加一个 token"],
+    "callout": "训练可并行算多个位置；每个位置仍不能看未来。",
+    "notes": "展示 <bos> 我 喜欢 吃 苹果 。 <eos>。x 是前六个 token，y 是后六个 token。模型在“喜欢”位置预测“吃”，不是复述“喜欢”。完整句子在训练数据里，但因果遮罩禁止位置偷看未来。训练阶段有标签，生成阶段没有未来标签。"
+  },
+  {
+    "title": "第一步：文本 → token → ID",
+    "section": "03 / 文字怎样变成数字",
+    "minutes": 3,
+    "kind": "tokens",
+    "bullets": ["token 是切分后的单位，不保证等于一个字或一个词", "ID 是词表中的编号，不表示大小或语义", "教学代码：按空格分词；真实模型常用子词切分"],
+    "callout": "我 喜欢 喝 茶 → [7, 5, 6, 10]（本课词表）",
+    "notes": "运行脚本时先显示词表，以实际输出为准。ID 的数字顺序只是我们为复现结果排序得来；编号 11 不意味着茶比我重要。真实 tokenizer 可产生词、子词、字节等单位，本课不接入外部分词器。"
+  },
+  {
+    "title": "Embedding：给每个 token 一排数字",
+    "section": "03 / 文字怎样变成数字",
+    "minutes": 3,
+    "kind": "embedding",
+    "bullets": ["查表：一个 ID → 长度为 D 的向量", "多个位置叠起来：X 的形状是 [T, D]", "表里的数字是参数，会在训练中更新"],
+    "callout": "向量像 [0.2, −0.7, 1.1, …]；某一维未必有固定含义。",
+    "notes": "用 Python 列表讲向量，用列表的列表讲矩阵。T 表示几个 token，D 表示每个 token 有多少个数字。本课 D=32。不要宣称某一维一定代表性别或词性；随机初始化的向量也还没有学到语言关系。"
+  },
+  {
+    "title": "位置：谁在前，谁在后？",
+    "section": "03 / 文字怎样变成数字",
+    "minutes": 2,
+    "kind": "position",
+    "bullets": ["“猫 追 狗”和“狗 追 猫”包含相同 token", "本课把位置向量加到 token 向量上", "Attention 的因果遮罩还会限制可见位置"],
+    "callout": "X = token_embedding(ids) + position_embedding(positions)",
+    "notes": "普通的无位置、无遮罩自注意力不能区分任意重新排列带来的顺序信息；本课使用学习式位置向量表达位置，并用因果遮罩限制方向。原论文用正弦位置编码，现代模型也常有别的方式；本课不展开比较。"
+  },
+  {
+    "title": "Attention 要解决：怎样利用上下文？",
+    "section": "04 / Attention 的计算",
+    "minutes": 3,
+    "kind": "context",
+    "bullets": ["一个位置的表示，需要结合其他可见位置", "先算匹配分数，再把分数变成权重", "按权重混合信息，得到新的向量"],
+    "callout": "Attention 输出的是向量，不是一个单词。",
+    "notes": "可以用‘查资料’类比：当前位置提出查询，各位置提供匹配依据和内容。随后立刻回到数字：它不是人类有意识地挑关键词，而是可学习的向量计算。最后选词需要经过后面的输出层。"
+  },
+  {
+    "title": "Q、K、V：同一输入的三个变换",
+    "section": "04 / Attention 的计算",
+    "minutes": 3,
+    "kind": "qkv",
+    "bullets": ["Q：当前位置拿什么去匹配", "K：各位置拿什么被匹配", "V：匹配以后，取回来什么信息"],
+    "callout": "Q = XWq，K = XWk，V = XWv（省略偏置）",
+    "notes": "Wq/Wk/Wv 是训练得到的参数矩阵。Q/K/V 都由同一序列 X 计算，所以叫 self-attention；不是三个独立句子。它们是类比中的角色，而不是保证每个维度有明确语义。演示一的人造 Q/K/V 跳过投影，演示二会真正学习投影。"
+  },
+  {
+    "title": "一个公式，读成三个动作",
+    "section": "04 / Attention 的计算",
+    "minutes": 3,
+    "kind": "formula",
+    "bullets": ["匹配：QKᵀ / √dₖ → 分数矩阵", "归一化：每行 softmax → 权重矩阵 A", "混合：AV → 新的向量"],
+    "callout": "Attention(Q, K, V) = softmax(QKᵀ / √dₖ) V",
+    "notes": "先演示两个列表逐项相乘再求和就是点积。T=3、d_k=2 时，Q/K 是 3×2，分数是 3×3，输出是 3×d_v。softmax 将一行分数变为和为 1 的权重；√d_k 缩放用于缓和高维点积的尺度。实现时 softmax 沿最后一个维度计算。"
+  },
+  {
+    "title": "手算一行：看到加权混合",
+    "section": "04 / Attention 的计算",
+    "minutes": 3,
+    "kind": "manual",
+    "bullets": ["q = [1, 0]，keys = [1, 0] / [0, 1] / [1, 1]", "分数 ≈ [0.707, 0, 0.707]", "softmax ≈ [0.401, 0.198, 0.401]"],
+    "callout": "V = [[1, 0], [0, 2], [3, 1]] → 输出 ≈ [1.604, 0.797]",
+    "notes": "这里先不加因果遮罩。让同学算第一列输出：0.401×1 + 0.198×0 + 0.401×3 = 1.604。第二列同理。权重行上的三个值对应被读取的三个位置。所有数字均为演示用，不能解释成真实语言关系。"
+  },
+  {
+    "title": "演示 1：运行，再改一个数字",
+    "section": "04 / Attention 的计算",
+    "minutes": 3,
+    "kind": "code",
+    "bullets": ["运行 attention_demo.py，观察分数、权重、输出", "把最后一个 V 改大：权重是否改变？", "只改 Q 或 K：匹配分数会怎样变化？"],
+    "code": "python class1/code/attention_demo.py\n\n# 或在 Notebook 中调用 attention(Q, K, V)",
+    "callout": "先预测结果，再运行验证。",
+    "notes": "此脚本只依赖 Python 标准库。打开第一个函数，从 softmax 到 weighted sum 逐段讲，不读完所有辅助代码。只改 V 不会改变 A，但会改变 AV；Q/K 的变化会影响分数和权重。3 分钟内优先完成改 V 的小实验。"
+  },
+  {
+    "title": "因果遮罩：预测时不能偷看答案",
+    "section": "05 / 拼成 Transformer",
+    "minutes": 3,
+    "kind": "mask",
+    "bullets": ["行是当前 query，列是可读的 key", "保留对角线及左侧；未来分数设为 −∞", "softmax 后，未来位置的权重变为 0"],
+    "callout": "python class1/code/attention_demo.py --causal",
+    "notes": "运行第二次，把无 mask 和有 mask 的矩阵并排看。第一行从约 [0.401, 0.198, 0.401] 变成 [1, 0, 0]。当前位置 token 已经在输入中，因此可以看自己；它要预测的是下一个 token。不是在 softmax 后随便删权重，而是在 softmax 前遮挡未来。"
+  },
+  {
+    "title": "一个 Block：混合上下文，再加工向量",
+    "section": "05 / 拼成 Transformer",
+    "minutes": 3,
+    "kind": "block",
+    "bullets": ["多头 Attention：不同投影，各算一份，再拼接", "FFN：对每个位置的向量做相同的非线性变换", "残差相加与 LayerNorm：帮助信息传递和训练"],
+    "callout": "本课：1 个 Block · 2 个 head · D=32 · 每头 16 维",
+    "notes": "指着本课 Pre-LN 示意解释：x + Attention(LN(x))，再 x + FFN(LN(x))。多头是同一层里的多个投影，层数是 Block 重复的次数；两者不要混淆。FFN 不在不同 token 之间直接交换信息。LayerNorm 今天只讲归一化的作用；不能省略它在本课图里的位置。"
+  },
+  {
+    "title": "架构全貌：把主线连起来",
+    "section": "05 / 拼成 Transformer",
+    "minutes": 2,
+    "kind": "architecture",
+    "bullets": ["原始 Transformer：Encoder–Decoder，用于序列到序列任务", "今天的生成模型：Decoder-only，无跨注意力", "Block 可堆叠；末尾把向量映射为整个词表的分数"],
+    "callout": "ID → token+position embedding → Block → LN → logits → 概率",
+    "notes": "本课聚焦采用因果自注意力的 decoder-only 语言模型，不把所有大模型都归为这一种。原论文 decoder 还有读取 encoder 输出的 cross-attention；我们没有该模块。最后 Linear 输出 logits，softmax 用于生成概率；训练时 cross_entropy 接收原始 logits。"
+  },
+  {
+    "title": "演示 2：先检查输入和形状",
+    "section": "06 / 真正训练一个小模型",
+    "minutes": 3,
+    "kind": "shapes",
+    "bullets": ["数据：8 句人工句子；每句加起止标记", "输入 [8, 6] → 向量 [8, 6, 32]", "logits [8, 6, 12]；Attention [8, 2, 6, 6]"],
+    "code": "python class1/code/tiny_transformer.py --steps 200\n\nB = 8; T = 6; D = 32; H = 2; vocab_size = 12",
+    "callout": "B 是句子数，T 是位置数，D 是向量长度，H 是头数。",
+    "notes": "先打印 x[0] 和 y[0]，让同学找出右移一位。logits 的最后一维为什么是 12？因为本课词表有 12 个 token，包括两个特殊符号。Attention 为什么是 T×T？每个 query 对每个 key 有一个权重。代码在 CPU 上运行，无需下载模型。"
+  },
+  {
+    "title": "训练：猜得不对，就调整参数",
+    "section": "06 / 真正训练一个小模型",
+    "minutes": 3,
+    "kind": "training",
+    "bullets": ["前向计算：得到每个位置的 logits", "交叉熵：正确 token 的概率越低，惩罚越大", "backward + optimizer.step：计算梯度并更新参数"],
+    "callout": "logits → cross_entropy → backward → step → 下一轮",
+    "notes": "用一个位置 loss=-log p(正确token) 讲误差，随后解释训练时平均多个位置。展示实际日志的起点和终点，并说明这里只在同一训练集测误差。八句在一些前缀下有多个合法后续，因此即使拟合很好，loss 也不需要降到 0。"
+  },
+  {
+    "title": "生成：看最后一个位置，再接回去",
+    "section": "06 / 真正训练一个小模型",
+    "minutes": 3,
+    "kind": "generation",
+    "bullets": ["取 logits[0, −1]，转成下一 token 的概率", "本课选最高概率 token，并追加到前文", "重复，直到 <eos> 或达到长度限制"],
+    "callout": "我 喜欢 → 吃 → 苹果 → 。 → <eos>（示意路径）",
+    "notes": "运行带 trace 的生成，逐行指候选概率和增长的上下文。示意路径不保证与实际贪心选择相同；茶/牛奶/苹果/香蕉都可能是合法后续。训练改变参数；generate 只读取参数。提示同学同样的 prompt 本课使用贪心选择，所以可重复；按概率采样则可变化。"
+  },
+  {
+    "title": "读懂结果，也读懂它的边界",
+    "section": "06 / 真正训练一个小模型",
+    "minutes": 3,
+    "kind": "limits",
+    "bullets": ["loss 下降：模型更会拟合这 8 句训练数据", "没有验证集：这不能证明理解或泛化", "改 prompt 为“你 喜欢 喝”，观察候选如何变化"],
+    "callout": "小模型展示计算链路；大模型还需要大量数据和训练。",
+    "notes": "把 prompt 改为词表中的已知 token，避免现场因未知词中断。说明超出词表会报清晰错误，这是本课 tokenizer 的简化。Attention 权重也不是因果解释或人的思维过程。先让同学用“训练 vs 生成”解释现象，再说模型规模不是本节重点。"
+  },
+  {
+    "title": "三分钟：把主线讲给我听",
+    "section": "07 / 检查理解",
+    "minutes": 3,
+    "kind": "quiz",
+    "bullets": ["Attention 输出的是词，还是向量？", "为什么第一行因果 Attention 是 [1, 0, 0]？", "生成一个 token 时，模型参数会改变吗？"],
+    "callout": "最后用一句话串起：token、embedding、Attention、logits、生成。",
+    "notes": "答案依次是向量；第一个位置只能读自己；不会。请同学自己画一次完整流程并解释每个箭头。有时间再问 logits 最后一维等于什么：词表大小。若答错，回到相应代码输出，不新增术语。"
+  },
+  {
+    "title": "课后：做两次有预测的实验",
+    "section": "07 / 检查理解",
+    "minutes": 2,
+    "kind": "homework",
+    "bullets": ["只改 V，记录权重和输出分别发生什么变化", "换一个合法 prompt，逐步记录生成的候选", "用自己的话画出完整计算链路，标明张量形状"],
+    "callout": "下一节：用 PyTorch 逐行实现多头 Attention，并理解训练。",
+    "notes": "课后任务控制在 20–30 分钟。先写预测，再运行，再解释差异。资料来源：Attention Is All You Need https://arxiv.org/abs/1706.03762；PyTorch scaled_dot_product_attention 和 CrossEntropyLoss 官方文档，链接见 student_handout.md。今天不要求完整重写模型。"
+  }
+]
