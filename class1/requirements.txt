@@ -1,3 +1,2 @@
-# 运行两个演示所需；推荐 Python 3.11–3.13，CPU 即可。
-torch>=2.6,<3
-numpy>=1.26,<3
+# 第一节课主线代码只用 Python 标准库，无需安装任何包。
+# 完整训练演示的可选依赖见 optional/requirements.txt。
