@@ -27,9 +27,9 @@ python3 class1/code/lesson.py
 
 从 **[class2 教学入口](class2/README.md)** 开始：
 
-- [18 页授课 PPT](class2/class2_tokens_embeddings_positions.pptx)
+- [21 页授课 PPT](class2/class2_tokens_embeddings_positions.pptx)
 - [第二课教案](class2/teacher_guide.md)
 - [课堂 Notebook](class2/demo.ipynb)
 - [学生讲义](class2/student_handout.md)
 
-主线代码只用 Python 标准库，分别运行 BPE 合并、embedding 查表和正弦位置实验。另有实际更新 embedding 表、学习 BPE 规则与 RoPE 点积的短实验。
+第二课包含加权 BPE 与 rank 编码、真实 ByteLevel Tokenizers 配置、PyTorch embedding 梯度和下一 token 训练，以及正弦编码、RoPE 推导和多头接口。使用本地语料与配置，安装依赖后可离线运行。

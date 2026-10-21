@@ -1,17 +1,35 @@
-# %% 5. token ID 是查表地址；每一行是一组可训练的参数
-import random
+"""真实 nn.Embedding：batch 查表、one-hot 等价、梯度累加和 padding。"""
+import torch
+from torch import nn
+from torch.nn import functional as F
 
-vocab = ["你", "喝", "喜", "奶", "我", "欢", "牛", "酒",
-         "喜欢", "喜欢喝", "喜欢喝牛", "喜欢喝牛奶"]
-rng = random.Random(7)
-table = [[round(rng.uniform(-0.5, 0.5), 3) for _ in range(4)] for _ in vocab]
-token_ids = [4, 11]
-vectors = [table[token_id] for token_id in token_ids]
-for token_id, vector in zip(token_ids, vectors):
-    print("ID", token_id, vocab[token_id], "→", vector)
-print("词表大小 / 向量维度：", len(table), len(table[0]))
+from runtime import load_tokenizer, make_batch
 
-# %% 6. 重复查同一行，得到相同的输入 embedding
-print("再次查‘我’：", table[4])
-print("两次查询相同：", vectors[0] == table[4])
-print("这是随机初始化，不是训练好的词义表示。")
+
+def demo():
+    torch.manual_seed(7)
+    tokenizer = load_tokenizer()
+    ids, valid = make_batch(tokenizer, ["我喜欢喝牛奶。", "我喜欢喝酒。"])
+    pad = tokenizer.token_to_id("<pad>")
+    embedding = nn.Embedding(tokenizer.get_vocab_size(), 8, padding_idx=pad)
+    vectors = embedding(ids)
+    one_hot = F.one_hot(ids, num_classes=embedding.num_embeddings).to(vectors.dtype)
+    print("ID / E / X：", list(ids.shape), list(embedding.weight.shape), list(vectors.shape))
+    print("lookup == one_hot @ E：", torch.allclose(vectors, one_hot @ embedding.weight))
+    print("有效位置：", valid.tolist())
+
+    a, b = tokenizer.encode("我喜欢喝牛奶。").ids[:2]
+    assert a != b and a != pad and b != pad
+    repeated = torch.tensor([[a, a, b, pad]])
+    embedding.zero_grad()
+    embedding(repeated).sum().backward()
+    print("用于求和的 ID：", repeated.tolist())
+    print("重复 token 行的梯度：", embedding.weight.grad[a].tolist())
+    print("出现一次的行梯度：", embedding.weight.grad[b].tolist())
+    print("padding 行梯度：", embedding.weight.grad[pad].tolist())
+    print("此 loss 只是梯度诊断；它还不是语言模型的交叉熵。")
+    return embedding, ids
+
+
+if __name__ == "__main__":
+    demo()

@@ -1,242 +1,281 @@
 [
   {
-    "title": "第二课：文本怎样成为模型的输入",
-    "section": "开场 / 接上第一课",
+    "title": "第二课：输入表示的算法与机制",
+    "section": "开场 / 从输入链路进入实现",
     "minutes": 3,
     "kind": "opening",
     "bullets": [
-      "输入文字：我喜欢喝牛奶",
-      "第一课用空格切分、手动指定向量",
-      "这节课补上切分、映射和顺序的来由"
+      "Tokenizer：怎样学习规则，怎样执行编码",
+      "Embedding：怎样选行，误差怎样更新表",
+      "位置机制：顺序怎样进入 Q/K 计算"
     ],
-    "callout": "文本 → token ID → token embedding → 带位置信息的表示",
-    "notes": "先让同学回忆 ID、向量、Attention 的关系。第一课的空格分词是教学简化；这次输入不带空格，追问该在哪里切。说明今天只研究进入 Attention 之前的输入表示。"
+    "callout": "文本 → token ID → 可训练向量 → 位置机制 → Attention",
+    "notes": "沿用第一课的Q/K/V概念，新增B、T、D、V四个形状符号。本课有字符级BPE机制实验与真实ByteLevel BPE实现，两者的词表和ID不混用。课堂运行已保存的本地配置，不下载预训练模型。准备阶段安装Tokenizers与PyTorch。"
   },
   {
-    "title": "三个问题，对应三个实验",
-    "section": "开场 / 本课地图",
-    "minutes": 2,
-    "kind": "roadmap",
-    "bullets": [
-      "为什么切成这些 token？观察一次 BPE 合并",
-      "为什么查成这些向量？查表并观察参数更新",
-      "顺序如何进入计算？改变位置，比较输入"
-    ],
-    "callout": "每个实验都区分：规则是什么，数值从哪里来。",
-    "notes": "展示三个脚本和 Notebook，说明主线代码只用 Python 标准库。授课时依次回答为什么切、为什么映射、为什么能感知顺序。位置实验采用四维向量，避免大张量。"
-  },
-  {
-    "title": "分词单位：字、词，还是更小的片段？",
-    "section": "一 / 文本到 token",
+    "title": "词表规模是计算取舍，不只是“怎么分词”",
+    "section": "一 / Tokenizer 的设计目标",
     "minutes": 3,
-    "kind": "units",
+    "kind": "budget",
     "bullets": [
-      "按字：单位细，常使序列更长",
-      "按整词：覆盖新词困难，词表可能很大",
-      "子词：复用片段，在长度和词表大小间折中"
+      "V 增大，embedding 与输出层参数随之增大",
+      "T 增大，稠密注意力分数矩阵按 T² 增长",
+      "在覆盖、序列长度和参数规模之间权衡"
     ],
-    "callout": "token 是词表中的单位，不必等于一个字或一个自然语言词。",
-    "notes": "运行 tokenization.py 第一段：六个汉字与一种四词切分。这里‘喜欢’和‘牛奶’的词切分只是对照，不是自动算法的输出。常见子词算法有 BPE、WordPiece、Unigram；本课只讲 BPE。不把字数直接换算为 token 数。"
+    "callout": "E 的参数量 V×D；V=32768、D=4096、FP16 时约占 256 MiB。",
+    "notes": "只计算单个embedding矩阵，32768×4096×2字节=256MiB；未绑定的输出权重另占一份。注意力分数矩阵的T²描述稠密实现，不能说整个模型成本仅由T²决定；logits投影也有T×D×V成本。更大的词表不保证所有文本都更短，后续看实际对照。"
   },
   {
-    "title": "BPE 训练：从语料里统计相邻片段",
-    "section": "一 / 为什么会这样合并",
-    "minutes": 4,
+    "title": "BPE 训练：加权统计、合并、重新统计",
+    "section": "一 / 离散规则怎样学出来",
+    "minutes": 3,
     "kind": "bpe_train",
     "bullets": [
-      "语料：三种句子，出现次数分别为 5、3、2",
-      "从字符开始，统计相邻片段的加权频次",
-      "每轮合并一对高频片段，更新后再统计"
+      "S(a,b) = Σ_s f_s × count_s(a,b)",
+      "选择当前最高频 pair，合并非重叠出现",
+      "重算频次，直到词表预算或停止条件满足"
     ],
-    "callout": "本例四轮：喜+欢 → 喜欢+喝 → 喜欢喝+牛 → 喜欢喝牛+奶",
-    "notes": "语料为我喜欢喝牛奶×5、你喜欢喝牛奶×3、我喜欢喝酒×2。第一轮喜+欢和欢+喝同为10，本例按首次出现顺序打破并列，选择喜+欢。后续计数为10、8、8。运行 optional/train_bpe.py 看四轮，不逐行阅读统计代码。固定合并次数是本例的词表规模选择。来源：Sennrich et al., 2016，见讲义参考资料。"
+    "callout": "本例语料频次 5、3、2；四轮合并频次为 10、10、8、8。",
+    "notes": "打开bpe_core.train_bpe，解释corpus中的频次乘数。首轮喜+欢与欢+喝同为10，本例按首次出现顺序打破并列。边界由预切分决定，本字符示例把每句作为一个片段；真实库下一页展示正则预切分。讲清训练不是梯度下降，而是统计和贪心合并。"
   },
   {
-    "title": "BPE 使用：固定规则，按顺序应用",
-    "section": "一 / 训练规则与使用规则分开",
-    "minutes": 4,
-    "kind": "bpe_apply",
-    "bullets": [
-      "已有规则依次合并，不重新理解整句话",
-      "本例结果：我 / 喜欢喝牛奶",
-      "查固定词表，得到 ID [4,11]"
-    ],
-    "callout": "切分边界由规则和语料影响，不要求符合人的词语习惯。",
-    "notes": "运行 tokenization.py 的合并函数和应用规则两段，观察每轮列表。喜欢喝牛奶被合为一块，来自小语料的高频模式，不是通用 tokenizer 的标准切分。再把输入改为我喜欢喝酒，会得到我/喜欢喝/酒，ID 为4、9、7；使用阶段不重学规则。",
-    "code": "parts = merge_pair(parts, pair)"
-  },
-  {
-    "title": "为什么换个模型，切分就可能不同？",
-    "section": "一 / 覆盖范围与配置",
-    "minutes": 4,
-    "kind": "bytes",
-    "bullets": [
-      "语料、词表规模、预处理和合并规则会影响结果",
-      "两个汉字“牛奶”在 UTF-8 中占六个字节",
-      "字节可作为基础单位，再合并成 token"
-    ],
-    "callout": "六个字节不等于六个最终 token；解码还取决于规范化和特殊符号处理。",
-    "notes": "运行 UTF-8 单元，只验证字符数2、字节数6。课堂字符级 BPE 仅覆盖列出的八个基础字符，咖啡不在词表内会无法查 ID。带完整字节覆盖的实现可处理更多文本，但若做小写、去音调等有损规范化，不承诺逐字还原原输入。空格、大小写、标点也可能影响切分。真实 tokenizer 的流水线见 Hugging Face 官方资料。"
-  },
-  {
-    "title": "ID 只是地址：为什么不能直接当语义数值？",
-    "section": "二 / token 到 embedding",
+    "title": "BPE 编码：按 merge rank，不按最长词匹配",
+    "section": "一 / 编码算法的关键一步",
     "minutes": 3,
-    "kind": "id",
+    "kind": "rank",
     "bullets": [
-      "ID=4 不代表比 ID=11 更小、更近或更相似",
-      "one-hot 用一个位置标识类别，维度等于词表大小",
-      "embedding 为每个 ID 提供一行可学习参数"
+      "固定 merges：第 0 条 b+c，第 1 条 a+b",
+      "abc 的当前候选：bc(rank 0)、ab(rank 1)",
+      "先合并 bc，得到 a / bc"
     ],
-    "callout": "换一套编号，同时重排对应表行，查出的向量可以完全不变。",
-    "notes": "用词表地址类比 ID，不把4和11的数值距离解释成语义距离。one-hot 长度为V，只有目标位置为1；one-hot 乘V×D表等价于选出对应一行。无需真的构造大 one-hot 才能查表。"
+    "callout": "merge rank 表示合并优先级；token ID 表示词表地址，两者不能混用。",
+    "notes": "用语料bc×6、ab×5、abc×1训练两轮，先bc频次7，再ab频次5。词表含ab、bc，但编码abc按rank得到a/bc，最长前缀会得到ab/c。运行bpe_core.demo看反例，再指出encode_bpe每轮枚举当前相邻候选并选最小rank。真实实现常用更高效数据结构，本课重在规则语义。",
+    "code": "rank, pair = min(candidates, key=lambda x: x[0])"
   },
   {
-    "title": "Embedding 的核心操作，就是选行",
-    "section": "二 / 从编号查到向量",
+    "title": "真实实现：ByteLevel BPE 的完整流水线",
+    "section": "一 / Hugging Face Tokenizers",
     "minutes": 4,
+    "kind": "hf_pipeline",
+    "bullets": [
+      "本地语料 → ByteLevel 预切分 → BPE 训练",
+      "保存 tokenizer.json：词表、merges 和配置",
+      "加载配置 → encode → tokens / ids / offsets"
+    ],
+    "callout": "分词器训练与语言模型训练，是两套不同的学习过程。",
+    "notes": "展示train_tokenizer.py中的Tokenizer(BPE)、ByteLevel、BpeTrainer和save。设置完整256字节基础字母表，四个特殊token，目标词表320或384。不设置有损normalizer，add_prefix_space=False。本地语料28行，重复10遍用于频次。已提交配置用于课堂复现，现场不必重训。不能把该小语料tokenizer称为商用模型的预训练配置。",
+    "code": "tokenizer.train_from_iterator(corpus, trainer=trainer)"
+  },
+  {
+    "title": "字节、空格和边界：观察真实编码结果",
+    "section": "一 / 从库输出解释切分",
+    "minutes": 3,
+    "kind": "byte",
+    "bullets": [
+      "Hello world!：V=320 时 9 项，V=384 时 5 项",
+      "前导空格、标点与大小写会影响预切分和编码",
+      "未见字符可由基础字节覆盖，完整回解核对文本"
+    ],
+    "callout": "ByteLevel 的可显示 token 字符串，不保证每项都是完整汉字。",
+    "notes": "运行tokenization.py，比较Hello world!与Hello, world!及前导空格。词表320/384对中文示例都得到3项，不把英文缩短推广为所有文本必然缩短。显示tokens里的特殊字符是字节映射表示；单个token可能只含UTF-8字符的一部分，不能逐ID解码后期待每项都是完整字符。offsets可能重叠，不当作token与字符一一对应。"
+  },
+  {
+    "title": "tokenizer 必须与模型参数配套",
+    "section": "一 / 可复现输入的条件",
+    "minutes": 2,
+    "kind": "artifact",
+    "bullets": [
+      "特殊符号也有 ID：pad=0、unk=1、bos=2、eos=3",
+      "相同词表大小，不代表 ID 与 merges 相同",
+      "先固定配置，再为它构造和训练参数表"
+    ],
+    "callout": "本课默认配置：V=320；“我喜欢喝牛奶。”→ [300,304,262]。",
+    "notes": "展示assets/tokenizer_320.json及384版本。ByteLevel与decoder让普通测试文本完整回解；skip_special_tokens默认会处理特殊符号，不能据普通文本测试承诺所有特殊字符串也逐字可逆。配置改变时须同步参数映射，不能直接拿320模型的embedding套384词表。"
+  },
+  {
+    "title": "Embedding：查表与 one-hot 乘法等价",
+    "section": "二 / 离散 ID 到连续参数",
+    "minutes": 3,
+    "kind": "onehot",
+    "bullets": [
+      "E∈R^(V×D)，单个输入 e_i = one_hot(i) E",
+      "batch 输入 I:[B,T] → X:[B,T,D]",
+      "实现直接 gather 选行，不显式创建大 one-hot"
+    ],
+    "callout": "ID 没有语义距离；表示的可学习几何来自 E 和训练目标。",
+    "notes": "运行embeddings.py的前半段，torch.allclose(lookup,one_hot@E)为True。真实示例E为[320,8]，batch为[2,6]，X为[2,6,8]。one-hot只为验证构造，不建议大词表训练时这么实现。对应重编号并重排行能保持前向结果不变。",
+    "code": "vectors = embedding(ids)  # [B,T] → [B,T,D]"
+  },
+  {
+    "title": "真实 batch：padding 不等于真实文本",
+    "section": "二 / shape 与特殊行",
+    "minutes": 3,
     "kind": "lookup",
     "bullets": [
-      "本例词表有 12 项，每行只有 4 个数字",
-      "ID [4,11] → 选择索引 4、11 的两行",
-      "输出形状：[2,4]；同一行会在各位置共享"
+      "两条不同长度序列，补齐到 T=6",
+      "nn.Embedding(..., padding_idx=0) 控制 lookup 梯度",
+      "valid mask 仍需传给后续注意力或损失"
     ],
-    "callout": "vectors = [table[token_id] for token_id in token_ids]",
-    "notes": "运行 embeddings.py。索引4的行为[0.127,0.448,0.077,-0.103]，索引11的行为[-0.256,0.074,0.025,0.375]。Python 从0开始编号。表使用固定随机种子初始化，只是可复现起点，不是训练好的语义向量。不要把输入 token embedding 与输出 logits 混淆。",
-    "code": "vectors = [table[i] for i in token_ids]"
+    "callout": "padding_idx 不会自动遮住 Attention，也不会自动忽略 loss。",
+    "notes": "make_batch手动加bos/eos；第一句长度5，第二句长度6，第一句末尾补pad。nn.Embedding默认将padding行初始化为0并在lookup反传中抑制其梯度；加载或手动改值时不要假定它永远为0。Attention的padding key mask以及交叉熵ignore_index各自仍要处理。"
   },
   {
-    "title": "为什么用稠密、可学习的向量？",
-    "section": "二 / 为什么这样映射",
+    "title": "重复 token 怎样更新同一行？",
+    "section": "二 / gather 的反向：scatter-add",
     "minutes": 4,
-    "kind": "dense",
+    "kind": "grad",
     "bullets": [
-      "给不同 token 一组能被后续计算使用的特征",
-      "固定 D 维，与词表大小 V 分开选择",
-      "通过共享网络和训练，让有用的表示逐渐形成"
+      "单位置反传得到 g_p = ∂L/∂X_p",
+      "同一 ID 的梯度按所有出现位置累加",
+      "∂L/∂E_j = Σ_{p:I_p=j} g_p"
     ],
-    "callout": "表的参数量是 V×D；查表省去显式构造长度为 V 的 one-hot。",
-    "notes": "与直接使用整数 ID 相比，向量不强迫编号具有数值大小关系。与 one-hot 相比，D可远小于V，后续计算使用共同的D维接口。表示相似性取决于训练目标与数据，不保证所有近义词相邻，不赋予每维固定标签。输入embedding表本身仍占V×D个参数。"
+    "callout": "诊断输入 [a,a,b,pad]：求和 loss 的梯度分别是 2、1、0。",
+    "notes": "运行embeddings.py后半段，用.sum().backward()明确上游每维梯度是1；a出现两次所以对应行每维2，b每维1，padding lookup为0。这是诊断loss，不是语言模型交叉熵。未用作输入的行在此lookup路径梯度为0；绑定输出权重或施加weight decay时不能把它说成所有训练情形的更新规律。"
   },
   {
-    "title": "表里的数字怎样学出来？",
-    "section": "二 / 从初始化到参数更新",
-    "minutes": 4,
-    "kind": "learning",
-    "bullets": [
-      "先从初始表出发，计算任务的预测误差",
-      "根据误差更新相关表行和网络参数",
-      "反复训练，使表示更有利于当前任务"
-    ],
-    "callout": "小实验：四个 token 的“配喝 / 配吃”分类，观察表行和 loss 的变化。",
-    "notes": "运行 optional/embedding_update.py。该独立实验使用酒、牛奶、苹果、香蕉四个token，两个输出类别，固定输出层为恒等映射，只训练四行二维embedding。平均交叉熵从约0.6981到0.0656；只能说明此训练集分类改善，不代表语言理解或完整预训练。这里的二维表与主线的12×4表是不同实验。课堂只讲更新的作用，不推导梯度。",
-    "code": "row[dimension] -= 0.2 * gradient"
-  },
-  {
-    "title": "同一个 token 的向量，会不会随上下文变？",
-    "section": "二 / 输入表示与上下文表示",
+    "title": "从下一 token 交叉熵追到 embedding",
+    "section": "二 / 一条可以对应代码的梯度链",
     "minutes": 3,
-    "kind": "context",
+    "kind": "chain",
     "bullets": [
-      "同一模型、同一 ID，查到同一行输入向量",
-      "经过位置机制与 Transformer，表示会受位置和上下文影响",
-      "词表、ID 对应关系与 embedding 行必须配套"
+      "z = e W_out^T + b，p = softmax(z)",
+      "单位置交叉熵 L = −log p_y",
+      "∂L/∂e = (p − one_hot(y)) W_out"
     ],
-    "callout": "查表结果固定，不代表进入各层后的表示也固定。",
-    "notes": "运行 embeddings.py 最后一段，再次查我，结果相同。强调训练会改变参数表；这里指参数固定的一次推理。经过上下文计算的隐藏表示可变化，不把这种变化说成重新查了另一行。随意更换 tokenizer 或重编号却不对应重排表，会把 token 映射到错误行。"
+    "callout": "先得到每次出现的向量梯度，再按 token ID 累加到 E。",
+    "notes": "W_out形状[V,D]，p-y是[V]，右乘得到[D]梯度。写一个正确类别的p_y低时误差大的例子，不推导softmax完整Jacobian。公式按单个位置；实际batch mean loss还包含平均因子。F.cross_entropy直接接原始logits，内部完成log_softmax，不先softmax。",
+    "code": "loss = F.cross_entropy(output(embedding(x)), y)"
   },
   {
-    "title": "顺序问题：矩阵有行序，模型如何利用？",
-    "section": "三 / 位置信息",
-    "minutes": 4,
-    "kind": "order",
-    "bullets": [
-      "“我喜欢喝牛奶”与重排后的句子不同",
-      "无位置且无遮罩的 self-attention 会随输入重排而重排",
-      "需要把位置作为可参与计算的信号"
-    ],
-    "callout": "不能把“没有显式位置”简单说成“输入列表没有顺序”。",
-    "notes": "矩阵行序仍存在，但在无位置、无遮罩的标准self-attention中，重排输入只会相应重排输出，不会凭空产生绝对位置或前后关系特征。因果mask改变可见结构，不能与上述无遮罩情形混为一谈。只讲这个条件，不增加证明。下一步用同一个我出现在位置0与2观察表示变化。"
-  },
-  {
-    "title": "绝对位置：内容向量加上位置向量",
-    "section": "三 / 怎样把位置带入输入",
-    "minutes": 4,
-    "kind": "add",
-    "bullets": [
-      "内容向量回答“是什么 token”",
-      "位置向量由 token 的位置 0、1、2……决定",
-      "维度相同，逐项相加得到该位置的输入"
-    ],
-    "callout": "xₚ = E[token_id] + P[p]；位置索引是 token 位置，不是字符偏移。",
-    "notes": "原始Transformer使用相加式位置编码。本课用四维向量，相加后维度仍是4。位置表也可训练；具体实现可能有embedding缩放，本课省略。不要求模型从和向量无损拆回两个部分；重点是位置改变计算信号。后面的实验只验证输入不同，不证明模型已经正确理解词序。 可学习位置表的形状为L×D，按位置p查行，可直接查询的索引受L限制。",
-    "code": "vector = [word_vector[i] + pe[i] for i in range(4)]"
-  },
-  {
-    "title": "正弦编码：不同频率描述不同位置",
-    "section": "三 / 运行位置实验",
-    "minutes": 4,
-    "kind": "sinus",
-    "bullets": [
-      "成对维度分别用 sin 与 cos",
-      "四维时角度分别是 p 与 p/100",
-      "同一个“我”放在位置 0 和 2，组合结果不同"
-    ],
-    "callout": "PE(p,2i)=sin(p/10000^(2i/D))；奇数维用 cos。",
-    "notes": "运行 positions.py。位置0为[0,1,0,1]，位置2约为[0.9093,-0.4161,0.0200,0.9998]。我输入向量为[0.127,0.448,0.077,-0.103]，相加后位置0为[0.127,1.448,0.077,0.897]，位置2约[1.0363,0.0319,0.0970,0.8968]。使用原始精度运算后显示舍入。正弦可按公式计算更大索引，不等于模型长序列效果有保证。来源：Attention Is All You Need §3.5。",
-    "code": "angle = position / (10000 ** (2*i/width))\nresult += [math.sin(angle), math.cos(angle)]"
-  },
-  {
-    "title": "因果遮罩与位置机制，各自解决什么？",
-    "section": "三 / 认识 RoPE",
+    "title": "运行一次真实的下一 token 训练",
+    "section": "二 / Embedding + Linear 的 bigram 基线",
     "minutes": 3,
-    "kind": "rope",
+    "kind": "training",
     "bullets": [
-      "因果遮罩：限制哪些输入位置可读取",
-      "绝对位置编码：给输入提供位置坐标",
-      "RoPE：按位置旋转 Q/K，让点积体现相对位移"
+      "真实 ByteLevel BPE，7 句训练文本、57 对相邻 token",
+      "nn.Embedding(320,16) → Linear(16,320)",
+      "Adam 训练 120 步，观察 loss 与表行变化"
     ],
-    "callout": "RoPE 通常作用于 Q/K 的成对维度，不是给原 token ID 加数字。",
-    "notes": "说明相加只是位置机制的一类，不能说所有模型都用E+P。RoPE在Q/K上做位置相关旋转，旋转点积可表达相对位移。本课只认识接口；课后运行optional/rope_demo.py，看1与3、6与8有相同相对位移时，二维旋转点积相同。mask与位置机制配合使用，位置编码不保证无限外推。来源：RoFormer。"
+    "callout": "实测 loss：5.7565 → 0.3559；26 个输入表行发生更新。",
+    "notes": "运行embedding_train.py或Notebook训练单元。模型只用当前token预测下一项，因此是bigram基线，不是Transformer；同一个输入可能有多个后续，loss不必归零。无验证集，仅观察训练拟合。在无weight decay、未绑定输出权重的本实验中，更新行数26与出现过的输入行数一致。 本数据仅依赖当前token时的经验条件熵下界约0.35583；此项供老师解释loss平台，不要求课内计算。训练pair未补齐，不含pad标签。"
   },
   {
-    "title": "把三件事接起来",
-    "section": "收束 / 送入 Attention 的是什么",
+    "title": "输入表、输出表与权重绑定",
+    "section": "二 / 参数共享与表示边界",
+    "minutes": 2,
+    "kind": "tie",
+    "bullets": [
+      "输入 embedding 与输出投影可共用 E",
+      "权重绑定：logits = h E^T + b",
+      "同一输入表行固定，经过上下文后的隐藏表示可变"
+    ],
+    "callout": "绑定权重后，E 会同时接收输入 lookup 与输出分类器的梯度。",
+    "notes": "本课bigram代码未绑定，便于先看lookup行更新。若绑定，词表全体候选参与输出softmax，未作为输入的行也可能收到输出梯度；padding_idx只限制lookup路径。设置output.weight=embedding.weight应在创建optimizer之前完成，并用去重的参数迭代器。相似度受训练任务影响，不能把每维解释为固定语义标签。"
+  },
+  {
+    "title": "无位置时：为什么是置换等变？",
+    "section": "三 / 顺序问题的准确表述",
     "minutes": 3,
+    "kind": "permutation",
+    "bullets": [
+      "行置换 P：Q′=PQ，K′=PK，V′=PV",
+      "分数矩阵随之变成 P(QK^T)P^T",
+      "逐行 softmax 后，Attn(PX)=P Attn(X)"
+    ],
+    "callout": "这里假设没有位置机制、没有因果 mask；等变不等于输出完全相同。",
+    "notes": "给出三行token的重排，说明输出随行重排，而非整个矩阵不变。运行position_mechanics.py：无位置时True，给新行位置加PE后False。不要求证明任意网络性质，只连接QK转置和softmax逐行对称性。因果mask并不随任意置换同样改变，所以不满足这里的假设。"
+  },
+  {
+    "title": "绝对位置：学习表与固定函数",
+    "section": "三 / 位置从何处进入",
+    "minutes": 3,
+    "kind": "absolute",
+    "bullets": [
+      "可学习 P:[L,D]，按 token 位置索引查行",
+      "相加式输入 X_p = E[I_p] + P_p",
+      "正弦编码用固定公式，维度与输入一致"
+    ],
+    "callout": "P 的索引是 token 位置；L 限制学习式表能直接查询的范围。",
+    "notes": "不要把BPE的字符offset当成token位置。可学习位置表也参与反向传播；正弦表不需要训练其数值。相加式输入与RoPE是不同接口，下一页分别说明，代码不会先加绝对PE又声称相对旋转分数必然保持不变。"
+  },
+  {
+    "title": "正弦为什么使用多组频率？",
+    "section": "三 / 从公式到向量化",
+    "minutes": 3,
+    "kind": "frequencies",
+    "bullets": [
+      "θ_i=10000^(−2i/D)，第 i 对使用 pθ_i",
+      "PE 的相邻两维为 sin(pθ_i)、cos(pθ_i)",
+      "固定偏移 Δ 可由同一二维线性变换表示"
+    ],
+    "callout": "sin((p+Δ)θ)=sin(pθ)cos(Δθ)+cos(pθ)sin(Δθ)。",
+    "notes": "D=4时频率1与0.01，沿用上一版四维数值核对。多个频率提供不同变化尺度，单一周期不能代替全部设计。指出pos[:,None]*frequencies[None,:]的广播形状[T,D/2]，而非逐token循环。可计算更大p不等于模型长上下文质量有保证。",
+    "code": "angles = positions[:, None] * frequencies[None, :]"
+  },
+  {
+    "title": "RoPE 二维推导：相对位移从哪来？",
+    "section": "三 / 旋转与 Attention 点积",
+    "minutes": 3,
+    "kind": "rotation",
+    "bullets": [
+      "R(φ)=[[cosφ,−sinφ],[sinφ,cosφ]]",
+      "q′_m=R(mθ)q，k′_n=R(nθ)k",
+      "q′_m^T k′_n = q^T R((n−m)θ) k"
+    ],
+    "callout": "关键等式：R(mθ)^TR(nθ)=R((n−m)θ)。",
+    "notes": "从二维旋转矩阵的转置等于反向旋转、旋转可相加讲到相对位移，约两步，不展开所有矩阵项。保持未旋转q/k不变、同时平移位置时点积不变；完整模型的q/k可能随上下文变化，所以不推出任意平移文本模型输出不变。"
+  },
+  {
+    "title": "把 RoPE 写成张量运算",
+    "section": "三 / 从二维旋转到多头 Q/K",
+    "minutes": 3,
+    "kind": "vector_rope",
+    "bullets": [
+      "本例按相邻维度配对：even=x[...,0::2]",
+      "每组频率分别旋转，广播到 batch 与 head",
+      "Q/K:[B,H,T,d_h]，对最后一维应用旋转"
+    ],
+    "callout": "RoPE 保持每个向量范数；点积仍会随相对位置改变。",
+    "notes": "展示positions.apply_rope。使用相邻维度配对，另一种split-half实现需有一致的坐标排列；不混用两种配对约定。函数支持[...,T,D]，D必须为正偶数。运行整体位置平移与范数检查，float64分数差在1e-15量级。RoPE作用Q/K，本实现不旋转V。",
+    "code": "rot_even = even*cos - odd*sin\nrot_odd  = even*sin + odd*cos"
+  },
+  {
+    "title": "三种机制：位置、因果范围与 padding",
+    "section": "三 / 不同维度的约束",
+    "minutes": 2,
+    "kind": "mask",
+    "bullets": [
+      "RoPE 或绝对位置：让位置参与数值计算",
+      "causal mask:[T,T]，限制读取未来",
+      "padding key mask:[B,1,1,T]，屏蔽补齐位置"
+    ],
+    "callout": "padding_idx、Attention mask、loss ignore_index 互不替代。",
+    "notes": "pipeline将上三角future和无效key位置做逻辑或，再把score设为-inf；不会修改token ID来实现mask。批中每句含bos/eos，至少有可见有效key；对全屏蔽行必须另作处理以免softmax NaN。padding query的输出最后清零，但训练损失仍需独立忽略padding标签。"
+  },
+  {
+    "title": "真实输入链路：把 shape 全部接上",
+    "section": "收束 / 看清接口，不重讲完整模型",
+    "minutes": 2,
     "kind": "pipeline",
     "bullets": [
-      "固定 tokenizer：文本 → token → ID",
-      "匹配的 embedding 表：ID → 内容向量",
-      "位置机制：把位置信号带入后续计算"
+      "真实 tokenizer → ID [2,6] → embedding [2,6,8]",
+      "投影并拆头 → Q/K [2,2,6,4]",
+      "RoPE + 两种 mask → 输出 [2,6,8]"
     ],
-    "callout": "本例：6 个汉字 → 2 个 token → [2,4] 的输入表示。",
-    "notes": "回到我喜欢喝牛奶。在本例字符级BPE规则下token是我和喜欢喝牛奶，ID4、11。取两行四维embedding，再用位置0、1编码组合，得到两行四维输入；不是六个汉字各分配一个token位置。采用RoPE时则在后续Q/K处注入位置，不能机械套E+P。请同学说清每一箭头。 运行课堂 Notebook 第9单元核对实际输入形状。",
-    "code": "input_ids = [vocab.index(piece) for piece in parts]"
+    "callout": "该脚本验证输入端与 Attention 接口，不包含完整 Block 或生成循环。",
+    "notes": "运行input_pipeline.py，只跟踪形状与一行RoPE、一行mask。此分支不先加绝对PE，随机参数未训练；上面的bigram训练也没有Attention。明确两个实验各验证什么，避免把它们拼成已训练的大模型。首句实际token3个，加bos/eos为5，补到6；另一句4个token，加标记为6。"
   },
   {
-    "title": "两分钟检查：能否回答这三个“为什么”？",
-    "section": "检查 / 解释而非背术语",
+    "title": "检查理解：解释一次编码、一次反传、一次旋转",
+    "section": "检查 / 课后约 30 分钟",
     "minutes": 2,
     "kind": "quiz",
     "bullets": [
-      "为什么“喜欢喝牛奶”能成为一个 token？",
-      "为什么 ID=4 与 ID=11 不直接表示语义距离？",
-      "同一 token 换了位置，哪些量会改变？"
+      "为什么 abc 在 rank 规则下是 a/bc 而非 ab/c？",
+      "同一 token 出现三次，它的表行梯度怎么计算？",
+      "为什么保持 n−m 后旋转点积相同，mask 却仍必要？"
     ],
-    "callout": "回答时区分：规则与词义、编号与参数、内容与位置。",
-    "notes": "答案：本例小语料与BPE规则造成，不保证人类词边界；ID只是地址，表示来自表行及训练；固定参数时原token embedding相同，相加式输入随位置改变，后续表示还可能随上下文改变。"
-  },
-  {
-    "title": "课后实验：各改一处，记录变化",
-    "section": "练习 / 约 20 分钟",
-    "minutes": 2,
-    "kind": "homework",
-    "bullets": [
-      "换输入“我喜欢喝酒”，保留合并规则",
-      "把 token 编号与表行一起重排，比较查表结果",
-      "把“我”从位置 0 移到位置 2，再观察编码"
-    ],
-    "callout": "下节课：从这些输入向量构造 Q/K/V，并实现 Attention。",
-    "notes": "实验一结果我/喜欢喝/酒，ID4、9、7。实验二对应重编号与表行后向量不变；只重编号会错行。实验三内容embedding相同，位置向量和组合输入不同。附加阅读为BPE统计、embedding更新与RoPE脚本，不要求整段背写。"
+    "callout": "课后：改词表规模、检查梯度、验证旋转等式并记录结果。",
+    "notes": "答案：重叠候选选最小rank；按各位置上游梯度求和，不是简单覆盖；旋转编码位置关系，mask决定哪些关系可读取。作业增加一个权重绑定实验，观察输出路径使更多embedding行获得梯度。完整答案及检查在exercises.md，保留数据与机制来源。"
   }
 ]

@@ -1,71 +1,82 @@
-# 第二课：Token、Embedding 与位置信息
+# 第二课：Tokenizer、Embedding 与位置机制
 
-**时长：60 分钟。** 适合完成第一课、会运行 Python 列表和循环的同学。
+**60 分钟，21 页 PPT。** 本课在第一课的 Q/K/V 与加权混合基础上，进入算法、梯度和张量实现。需要能跟踪向量、矩阵及 `[B,T,D]` 的形状，不预设已经掌握反向传播推导。
 
-本课回答三个问题：文本为什么切成这些 token？ID 为什么映射成一组向量？模型怎样获得顺序信息？
+## 三个机制
+
+| 部分 | 内容 | 实验 |
+| --- | --- | --- |
+| Tokenizer | 加权 pair 统计、merge rank、预切分与字节覆盖 | 可读 BPE 算法 + Hugging Face Tokenizers |
+| Embedding | gather 前向、scatter-add 反传、交叉熵梯度、权重绑定 | nn.Embedding + 自动求导 + 下一 token 训练 |
+| 位置 | 置换等变性、正弦多频率、RoPE 相对旋转、两类 mask | PyTorch 张量计算与等式验证 |
 
 ## 授课材料
 
-| 材料 | 用途 |
+| 文件 | 用途 |
 | --- | --- |
-| [授课 PPT](class2_tokens_embeddings_positions.pptx) | 18 页，16:9，含逐页讲者备注 |
-| [教案](teacher_guide.md) | 教学目标、逐分钟安排、提问与答案、实验操作 |
-| [课堂 Notebook](demo.ipynb) | 前八个单元与三个脚本一致，第九个单元连接整条输入链路，保留执行输出 |
-| [学生讲义](student_handout.md) | 三个问题的解释、公式与常见混淆 |
-| [课程地图](course_map.md) | 例句、切分、ID、向量和位置的对应关系 |
-| [练习及答案](exercises.md) | 课堂验收与课后实验 |
-| [PPT 文字版](slides.md) | 便于检索和备课 |
-| [PPT 预览](assets/slides_preview.jpg) | 同一绘图源的排版总览，非 PowerPoint 导出截图 |
-| [运行结果](sample_run.md) | 实际运行输出，供课堂核对 |
+| [授课 PPT](class2_tokens_embeddings_positions.pptx) | 21 页，含公式、代码接口和逐页讲者备注 |
+| [教案](teacher_guide.md) | 时间安排、板书顺序、实验操作、提问与答案 |
+| [课堂 Notebook](demo.ipynb) | 准备单元 + 12 个实验单元，保留实际输出 |
+| [讲义](student_handout.md) | 算法、梯度、位置公式与实现细节 |
+| [课程地图](course_map.md) | 接口、shape 和参数来源 |
+| [练习及答案](exercises.md) | 编码反例、梯度、权重绑定和旋转验证 |
+| [运行记录](sample_run.md) | 真实输出和训练指标 |
+| [PPT 文字版](slides.md) | 备课检索 |
+| [排版预览](assets/slides_preview.jpg) | 同一绘图源的总览，非 PowerPoint 导出截图 |
 
-## 课程安排
+## 时间安排
 
-| 时间 | PPT 页码 | 内容 | 课堂产出 |
-| --- | --- | --- | --- |
-| 0–5 分钟 | 1–2 | 回顾输入表示，提出三个问题 | 画出本课的输入链路 |
-| 5–20 分钟 | 3–6 | 字、词、子词；BPE 训练与使用；字符和字节 | 解释一次切分及其 ID |
-| 20–38 分钟 | 7–11 | 查表、稠密向量、参数学习、上下文表示 | 运行查表与更新实验 |
-| 38–53 分钟 | 12–15 | 顺序、位置相加、正弦编码、RoPE 与遮罩 | 比较同一 token 在两个位置的表示 |
-| 53–56 分钟 | 16 | 从文本连接到 Attention 输入 | 写出本例的形状变化 |
-| 56–60 分钟 | 17–18 | 检查理解，布置实验 | 回答三个“为什么” |
+| 时间 | PPT | 内容 |
+| --- | --- | --- |
+| 0–3 分钟 | 1 | 目标、符号与输入链路 |
+| 3–21 分钟 | 2–7 | 计算取舍、BPE 训练与编码、真实 ByteLevel 配置 |
+| 21–39 分钟 | 8–13 | batch 查表、梯度累加、交叉熵、实际训练和权重绑定 |
+| 39–56 分钟 | 14–19 | 置换等变性、正弦编码、RoPE 推导与 mask |
+| 56–58 分钟 | 20 | 真实 ID 到多头 Attention 的接口整合 |
+| 58–60 分钟 | 21 | 检查理解与课后实验 |
 
-## 运行代码
+课堂先看核心公式与关键语句，再运行对应结果，不逐行朗读所有辅助函数。bigram 训练不是 Transformer，随机 Attention 接口也不是训练好的模型。
 
-在仓库根目录执行，只需要 Python 3，无需安装包、联网或 GPU：
+## 环境与运行
 
-```bash
-python3 class2/code/tokenization.py
-python3 class2/code/embeddings.py
-python3 class2/code/positions.py
-```
-
-Windows 可将 `python3` 换成 `py -3`。也可打开 [demo.ipynb](demo.ipynb)，选择 Python 内核，按顺序运行；VS Code 中的脚本用 `# %%` 分段。
-
-三个课堂辅助实验也只用标准库：
+推荐 Python 3.11–3.13，CPU 即可。在仓库根目录执行：
 
 ```bash
-python3 class2/optional/train_bpe.py
-python3 class2/optional/embedding_update.py
-python3 class2/optional/rope_demo.py
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r class2/requirements.txt
+python class2/code/bpe_core.py
+python class2/code/tokenization.py
+python class2/code/embeddings.py
+python class2/code/gradient_chain.py
+python class2/code/embedding_train.py
+python class2/code/positions.py
+python class2/code/position_mechanics.py
+python class2/code/input_pipeline.py
+python class2/tools/check_experiments.py
 ```
 
-[拓展 Notebook](optional/experiments.ipynb) 收录同样的三个实验。BPE 统计和 embedding 更新在课堂中展示结果；RoPE 点积验证可放到课后。
+已有项目虚拟环境时直接使用它。Windows 可用 `py -3 -m venv .venv`，随后用 `.venv\Scripts\python.exe` 运行脚本。Notebook 选择同一环境的内核。
 
-## 例子的范围
+首次安装依赖需要网络；之后加载本地 tokenizer JSON 可离线运行，不下载模型权重。
 
-课堂 BPE 用三种句子学习四条规则，只有八个基础字符，词表最终为 12 项。它不处理任意字符，也不复现某个商用模型的切分；改变为词表外字符会无法查 ID。字节覆盖、规范化、特殊符号等实际实现问题在讲义中区分说明。
+## 配置与数据
 
-主线 embedding 表为 12×4，采用固定随机种子初始化。四 token 分类实验另用 4×2 的可训练表，不把两套数值混用。位置实验采用正弦相加，RoPE 则另在 Q/K 接口介绍。位置机制提供顺序信号，不能据此保证模型始终正确理解顺序或无限外推。
+- [本地语料](data/corpus.txt)：28 行中英文文本。
+- [320 项配置](assets/tokenizer_320.json) / [384 项配置](assets/tokenizer_384.json)：真实 ByteLevel BPE；固定 Tokenizers 0.22.2。
+- [编码报告](assets/tokenizer_report.json)：tokens、IDs、offsets、长度和回解结果。
+- [训练报告](assets/training_report.json)：bigram 的 loss 与表行更新记录。
 
-## 维护材料
+需重训 tokenizer 时运行 `python class2/code/train_tokenizer.py`，会覆盖两份本地配置。改配置后须重新运行依赖其 ID 的实验并更新报告；正式授课使用已保存配置即可。
 
-制作 PPT、执行 Notebook 时才需要工具依赖：
+原有三个纯 Python 热身保留在 [optional/](optional/README.md)，使用独立的小表和二维旋转，不作为本课真实接口的替代。
+
+## 重建材料
 
 ```bash
 python -m pip install -r class2/requirements-tools.txt
 python class2/tools/build_materials.py
 python class1/tools/execute_notebook.py class2/demo.ipynb
-python class1/tools/execute_notebook.py class2/optional/experiments.ipynb
 ```
 
-第二课复用第一课的绘图工具和 Notebook 执行器，需要保留仓库的完整目录结构。重建会更新本课 PPT、文字版、预览和 Notebook 模板；执行 Notebook 后保存输出。
+PPT 复用第一课绘图工具，需保留完整仓库。重建 Notebook 会清空输出，执行后再保存。

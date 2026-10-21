@@ -1,63 +1,65 @@
 # 第二课练习与参考答案
 
-## 课堂验收
+## 1. BPE 的重叠候选
 
-### 1. 为什么本例把“喜欢喝牛奶”合成一项？
+语料为bc×6、ab×5、abc×1，训练两次合并。写出首轮计数、两条规则和abc的编码。
 
-参考答案：三种训练句子反复出现这些相邻片段，BPE 按加权频次逐轮合并。固定四条规则得到这一结果。它不是自然语言词语边界的判定，也不是某个商用模型的标准输出。
+答案：bc为7、ab为6，先合并bc；重算后ab为5，第二条合并ab。abc按rank优先得到a/bc；不能因为词表里有ab就改用最长前缀。
 
-### 2. ID=4 与 ID=11 的差值，为什么不能当作语义距离？
+运行 `python class2/code/bpe_core.py` 核对，再交换语料频次，观察规则与编码能否变化。
 
-参考答案：ID 是词表地址。只要相应重排 embedding 表行，换编号也可以得到相同向量。词义相关的表示来自表行参数及训练，不来自编号大小。
+## 2. 改词表规模，记录真实变化
 
-### 3. 同一 token 出现在位置 0 与 2，哪些量相同？
+用保存的320/384配置分别编码四个自选文本，记录token数、tokens、ID和整串decode结果。至少包含中文、英文、前导空格和未见emoji。
 
-参考答案：参数固定时，原始 token embedding 相同；位置编码不同，相加后的输入不同。后续隐藏表示还可能因上下文不同而改变。若采用 RoPE，则在 Q/K 处引入位置相关旋转。
+参考：Hello world!为9/5，中文“我喜欢喝牛奶。”均为3；不能总结为“词表越大每句话一定越短”。token ID只在各自配置内解释，不能直接跨配置喂原表。
 
-## 课后实验（约 20 分钟）
+## 3. 重复 token 的梯度，不一定等于出现次数
 
-### A. 改输入，不改规则
+若ID序列 `[a,b,a]`，三个位置上游梯度分别是 `[1,2]`、`[3,4]`、`[5,6]`，求表行梯度。
 
-把 `tokenization.py` 的 `text` 改成“我喜欢喝酒”，先预测，再运行。
+答案：a为 `[6,8]`，b为 `[3,4]`。只有上游每次每维恰好为1时，梯度数值才等于出现次数；一般情况必须累加实际向量。
 
-参考结果：
+## 4. 单位置交叉熵
 
-```text
-我 / 喜欢喝 / 酒
-ID：[4,9,7]
-```
+核对 `code/gradient_chain.py` 中e、W、logits、手算梯度的shape，解释为何无需先对logits做softmax再传给cross_entropy。
 
-在 Notebook 中修改第一个单元的 `text`，从头运行到第九单元，最终形状应从 `[2,4]` 变为 `[3,4]`，三个 token 使用位置 0、1、2。中间的查表示范仍先显示固定的两行，第九单元才按实际切分重新连接全部步骤。
+答案：e为 `[1,4]`、W为 `[6,4]`、logits为 `[1,6]`，`(p−one_hot(y))@W`为 `[1,4]`，与e.grad相同。交叉熵内部完成log-softmax。若平均多个位置，要计入平均因子。
 
-### B. 改编号，对应重排表行
+## 5. 权重绑定：没有作输入的行也能有梯度
 
-在主线 Notebook 运行后，新建单元：
+在安装PyTorch的环境运行：
 
 ```python
-new_vocab = list(reversed(vocab))
-new_table = list(reversed(table))
-new_ids = [new_vocab.index(piece) for piece in parts]
-old_vectors = [table[vocab.index(piece)] for piece in parts]
-new_vectors = [new_table[token_id] for token_id in new_ids]
-print(old_vectors == new_vectors)
+import torch
+from torch import nn
+from torch.nn import functional as F
+
+torch.manual_seed(7)
+embedding = nn.Embedding(6, 4, padding_idx=0)
+head = nn.Linear(4, 6, bias=False)
+head.weight = embedding.weight
+loss = F.cross_entropy(head(embedding(torch.tensor([2]))), torch.tensor([3]))
+loss.backward()
+print(embedding.weight.grad.norm(dim=1))
 ```
 
-参考结果为 `True`。若只重排词表、不对应重排表行，结果会错配。这个实验解释“ID 是地址”，不能用它声称一个已训练模型可以随意换 tokenizer。
+答案：不仅输入行2有梯度，其他行也可收到输出分类器梯度；padding行0也可能如此。padding_idx只约束lookup路径。若训练绑定参数，先绑定，再用去重参数迭代器创建optimizer，例如 `nn.ModuleList([embedding, head]).parameters()`。
 
-### C. 保持 token 向量不变，只改位置
+## 6. 置换等变性
 
-运行 `positions.py`，比较位置 0 与 2 的“我”。
+将 `position_mechanics.py` 的置换改为 `[1,2,0]`。解释为什么无遮罩、无位置时仍应满足等变，而固定绝对位置后一般不满足。
 
-| 量 | 位置 0 | 位置 2 |
-| --- | --- | --- |
-| 原 token 向量 | [0.127,0.448,0.077,−0.103] | 相同 |
-| 位置编码 | [0,1,0,1] | 约 [0.9093,−0.4161,0.0200,0.9998] |
-| 组合输入 | [0.127,1.448,0.077,0.897] | 约 [1.0363,0.0319,0.0970,0.8968] |
+答案：行重排同时重排Q、K、V和scores，输出对应重排；重新排列token后仍使用当前位置0/1/2，会改变内容和位置的配对。不能将这个假设直接应用于带因果mask的计算。
 
-只说明位置已改变输入信号，不证明模型在所有句子中都正确理解了顺序。
+## 7. RoPE：范数、点积与相对位移
 
-## 拓展观察
+把positions中的整体偏移从5改成9，验证：每向量范数保持；整体平移后的旋转点积相同；只平移K的位置则通常改变点积。
 
-1. 运行 `optional/train_bpe.py`，将四轮规则与课堂脚本核对。改变语料频次，检查第一轮是否改变。
-2. 运行 `optional/embedding_update.py`，观察训练前后表行。loss 下降能说明什么？——四个训练样本分类拟合改善，不代表完整语言能力。
-3. 运行 `optional/rope_demo.py`，同时平移 Q/K 的位置，保持相对位移为 2。旋转点积在数值误差范围内不变，这不是无限长度泛化的保证。
+答案：前两项来自正交旋转和 `R(mθ)^TR(nθ)=R((n−m)θ)`。只移K会改变n−m。测试固定未旋转q/k，不能推出改变完整上下文后输出也不变。
+
+## 8. 三个 padding 接口
+
+问：设置padding_idx=0后，是否可以删除Attention key mask与loss.ignore_index？
+
+答案：不能。三者分别控制lookup梯度、可读key范围、参与损失的标签；RoPE也不会自动实现任何一种mask。

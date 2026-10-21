@@ -3,10 +3,8 @@ import importlib.util
 import json
 import math
 from pathlib import Path
-import re
 import sys
 
-import nbformat as nbf
 from PIL import Image
 from pptx import Presentation
 from pptx.util import Inches
@@ -26,10 +24,10 @@ def build_slides():
     items = json.loads((ROOT / "slides.json").read_text(encoding="utf-8"))
     ppt = Presentation()
     ppt.slide_width, ppt.slide_height = Inches(13.333333), Inches(7.5)
-    ppt.core_properties.title = "第二课：Token、Embedding 与位置信息"
+    ppt.core_properties.title = "第二课：Tokenizer、Embedding 与位置机制"
     ppt.core_properties.subject = "Transformer 输入表示，60 分钟"
     ppt.core_properties.author = "Transformer Newbie"
-    previews, text, minute = [], ["# 第二课：Token、Embedding 与位置信息\n"], 0
+    previews, text, minute = [], ["# 第二课：Tokenizer、Embedding 与位置机制\n"], 0
     for number, item in enumerate(items, 1):
         start, end = minute, minute + item["minutes"]
         minute = end
@@ -75,40 +73,11 @@ def build_slides():
 
 
 def build_notebooks():
-    descriptions = [
-        ("1. 比较切分单位", "六个汉字可以按字、按词或按子词表示。这里的四词切分仅用作对照。"),
-        ("2. 读懂一次合并", "遇到指定的相邻片段，就合成一项；从左到右扫描，不跨句子合并。"),
-        ("3. 应用固定规则，再查 ID", "规则来自 optional/train_bpe.py 的小语料训练。按顺序观察合并。改输入为我喜欢喝酒，保留规则再运行。这里只覆盖词表中的基础字符，不代表某个商用模型的切分。"),
-        ("4. 字符、字节、token", "牛奶是两个汉字、六个 UTF-8 字节。六个基础字节仍可合并；它们不是六个最终 token 的保证。"),
-        ("5. ID 查 embedding 表", "沿用同一份12项词表，查 ID 4、11 两行。四维向量采用固定随机种子初始化，尚未学习语义。"),
-        ("6. 重复查表", "参数固定时，同一 ID 的输入 embedding 相同；位置和上下文可使后续表示发生变化。"),
-        ("7. 构造位置编码", "D=4 时两组角度分别是 p 和 p/100。位置从0开始，指 token 位置，不是字符偏移。"),
-        ("8. 内容相同，位置不同", "这里复制了前面‘我’的四维向量，分别加入位置0和2的编码。验证输入改变，不把这个结果说成模型已经学会正确理解顺序。"),
-    ]
-    cells = [nbf.v4.new_markdown_cell("# 第二课：Token、Embedding 与位置信息\n\n文本如何切分？编号为什么映射成向量？顺序怎样进入计算？按顺序运行以下实验，代码只用 Python 标准库。")]
-    blocks = []
-    for name in ("tokenization.py", "embeddings.py", "positions.py"):
-        source = (ROOT / "code" / name).read_text(encoding="utf-8")
-        blocks += [b.strip() for b in re.split(r"(?m)^# %% .*\n", source) if b.strip()]
-    assert len(blocks) == len(descriptions)
-    for (title, explanation), block in zip(descriptions, blocks):
-        compile(block, "<lesson-cell>", "exec")
-        cells += [nbf.v4.new_markdown_cell(f"## {title}\n\n{explanation}"), nbf.v4.new_code_cell(block)]
-    cells += [nbf.v4.new_markdown_cell("## 9. 从切分结果连接到 Attention 输入\n\n使用前面的实际切分结果，重新查 ID、取表行，再为位置0、1等构造输入。修改第一个单元的 text，并从头运行，可观察 token 数和矩阵形状一起改变。这里只演示相加式位置机制。"),
-              nbf.v4.new_code_cell('input_ids = [vocab.index(piece) for piece in parts]\ninput_vectors = [table[token_id] for token_id in input_ids]\nmodel_inputs = []\nfor p, vector in enumerate(input_vectors):\n    pe = position_vector(p)\n    model_inputs.append([vector[i] + pe[i] for i in range(4)])\nprint("实际切分与 ID：", parts, input_ids)\nprint("送入后续计算的输入：", [[round(v, 4) for v in row] for row in model_inputs])\nprint("形状：", [len(model_inputs), len(model_inputs[0])])'),
-              nbf.v4.new_markdown_cell("## 复习\n\n1. 本例为什么会合并喜欢喝牛奶？\n2. ID 的数值距离为什么不能解释为语义距离？\n3. 同一 token 在两个位置的原始 embedding 与组合输入分别相同吗？\n\n[学生讲义](student_handout.md) · [拓展实验](optional/README.md)")]
-    extension_cells = [nbf.v4.new_markdown_cell("# 第二课拓展实验\n\n三个独立实验：学习 BPE 规则、更新 embedding 表、验证二维旋转点积。无需安装额外依赖。")]
-    for name, title in (("train_bpe.py", "统计语料，学习合并规则"), ("embedding_update.py", "只更新 embedding 的分类实验"), ("rope_demo.py", "保持相对位移，比较 RoPE 点积")):
-        source = (ROOT / "optional" / name).read_text(encoding="utf-8")
-        compile(source, name, "exec")
-        extension_cells += [nbf.v4.new_markdown_cell("## "+title), nbf.v4.new_code_cell(source)]
-    for name, content in (("demo.ipynb", cells), ("optional/experiments.ipynb", extension_cells)):
-        notebook = nbf.v4.new_notebook(cells=content)
-        notebook.metadata = {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"}, "language_info": {"name": "python", "file_extension": ".py"}}
-        nbf.write(notebook, ROOT / name)
+    from notebooks import build
+    build(ROOT)
 
 
 if __name__ == "__main__":
     build_slides()
     build_notebooks()
-    print("第二课：18 页 PPT、60 分钟、9 个课堂实验单元、3 个拓展单元。")
+    print("第二课机制版：21 页、60 分钟、Tokenizers 与 PyTorch 实验。")

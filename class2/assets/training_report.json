@@ -1,0 +1,36 @@
+{
+  "history": [
+    {
+      "step": 0,
+      "loss": 5.7564873695373535
+    },
+    {
+      "step": 30,
+      "loss": 0.3607178330421448
+    },
+    {
+      "step": 60,
+      "loss": 0.3564024865627289
+    },
+    {
+      "step": 90,
+      "loss": 0.3559753894805908
+    },
+    {
+      "step": 120,
+      "loss": 0.355943888425827
+    }
+  ],
+  "vocab_size": 320,
+  "embedding_shape": [
+    320,
+    16
+  ],
+  "pairs": 57,
+  "changed_rows": 26,
+  "observed_rows": 26,
+  "torch_version": "2.14.1",
+  "tokenizers_version": "0.22.2",
+  "seed": 7,
+  "conditional_entropy_lower_bound": 0.35582923235855796
+}

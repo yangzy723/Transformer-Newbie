@@ -1,0 +1,28 @@
+我喜欢喝牛奶。
+我喜欢喝酒。
+你喜欢喝牛奶吗？
+他今天喝了一杯牛奶。
+我不喝酒，我喝水。
+牛奶和水都是饮品。
+我喜欢吃苹果。
+你喜欢吃香蕉。
+苹果和香蕉都是水果。
+今天我们一起学习模型。
+模型根据上下文预测下一个 token。
+同一句话可以有不同的切分方式。
+词表、合并规则和参数表需要配套使用。
+位置编码让计算能够利用顺序信息。
+我喜欢喝咖啡。
+她喜欢喝茶。
+我喜欢喝水。
+你喜欢吃苹果吗？
+We learn tokenization with byte pair encoding.
+We learn embeddings from a prediction task.
+The model predicts the next token.
+I like milk. You like coffee.
+Token and token are different strings.
+Hello, world! Hello world.
+café and cafe have different bytes.
+2026 is a number. 12345 is another number.
+Spaces and punctuation affect pre-tokenization.
+An unseen word can use smaller byte pieces.
