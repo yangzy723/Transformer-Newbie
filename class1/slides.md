@@ -227,7 +227,7 @@ probabilities = softmax(logits)
 - 残差、归一化帮助训练；Block 可叠多层
 
 
-> 今天理解流向；多头、归一化和训练实现留到下一节。
+> 今天理解流向；多头、归一化和训练实现留到后续课程。
 
 
 **讲者备注**：主线演示输入查表、单头 Attention 与输出映射，省略位置、FFN、残差、归一化。正式 decoder-only 图包含它们。原始 Transformer 是 Encoder–Decoder，decoder 还有读取 encoder 的 cross-attention。本课选择文本生成的 decoder-only 主线。

@@ -4,4 +4,5 @@ __pycache__/
 .ipynb_checkpoints/
 .DS_Store
 class1/outputs/
+class2/outputs/
 ~$*

@@ -1,0 +1,2 @@
+# 仅供制作 PPT 与执行 Notebook；课堂脚本无需安装依赖。
+-r ../class1/requirements-tools.txt
