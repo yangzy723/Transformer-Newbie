@@ -25,6 +25,7 @@
 | [运行记录](sample_run.md) | 真实输出和训练指标 |
 | [PPT 文字版](slides.md) | 备课检索 |
 | [排版预览](assets/slides_preview.jpg) | 同一绘图源的总览，非 PowerPoint 导出截图 |
+| 单页示例 | [分词对照](assets/preview_tokenizer.png) · [梯度累加](assets/preview_embedding.png) · [RoPE](assets/preview_rope.png) |
 
 ## 时间安排
 
@@ -81,4 +82,8 @@ python class2/tools/build_materials.py
 python class1/tools/execute_notebook.py class2/demo.ipynb
 ```
 
-PPT 复用第一课绘图工具，需保留完整仓库。公式由 `tools/lesson_alignment.py` 统一维护，制作时排成透明高清图片，同时保留 LaTeX 源码；公式图片不能在 PPT 中逐字符修改，可改源码后重建。其他文字和图形仍可编辑。重建 Notebook 会清空输出，执行后再保存。
+只调整 PPT 时运行 `python class2/tools/build_materials.py --slides-only`，保留 Notebook 已执行的输出。
+
+PPT 使用 16:9 投影布局，代码统一 18 号字，主标题 34 号字；分词对照、参数表、padding 和 mask 用原生图形展示。每页聚焦一个问题，完整要点保留在讲者备注与文字版。视觉布局位于 `tools/slide_design.py`，内容与公式索引位于 `tools/lesson_alignment.py`。
+
+PPT 复用第一课绘图工具，需保留完整仓库。公式制作时排成透明高清图片，同时保留 LaTeX 源码；公式图片不能在 PPT 中逐字符修改，可改源码后重建。其他文字和图形仍可编辑。重建 Notebook 会清空输出，执行后再保存。
