@@ -31,7 +31,7 @@
     "minutes": 3,
     "kind": "bpe_train",
     "bullets": [
-      "S(a,b) = Σ_s f_s × count_s(a,b)",
+      "把每种文本的相邻次数，乘以该文本的出现频次",
       "选择当前最高频 pair，合并非重叠出现",
       "重算频次，直到词表预算或停止条件满足"
     ],
@@ -49,8 +49,7 @@
       "先合并 bc，得到 a / bc"
     ],
     "callout": "merge rank 表示合并优先级；token ID 表示词表地址，两者不能混用。",
-    "notes": "用语料bc×6、ab×5、abc×1训练两轮，先bc频次7，再ab频次5。词表含ab、bc，但编码abc按rank得到a/bc，最长前缀会得到ab/c。运行bpe_core.demo看反例，再指出encode_bpe每轮枚举当前相邻候选并选最小rank。真实实现常用更高效数据结构，本课重在规则语义。",
-    "code": "rank, pair = min(candidates, key=lambda x: x[0])"
+    "notes": "用语料bc×6、ab×5、abc×1训练两轮，先bc频次7，再ab频次5。词表含ab、bc，但编码abc按rank得到a/bc，最长前缀会得到ab/c。运行bpe_core.demo看反例，再指出encode_bpe每轮枚举当前相邻候选并选最小rank。真实实现常用更高效数据结构，本课重在规则语义。"
   },
   {
     "title": "真实实现：ByteLevel BPE 的完整流水线",
@@ -63,8 +62,7 @@
       "加载配置 → encode → tokens / ids / offsets"
     ],
     "callout": "分词器训练与语言模型训练，是两套不同的学习过程。",
-    "notes": "展示train_tokenizer.py中的Tokenizer(BPE)、ByteLevel、BpeTrainer和save。设置完整256字节基础字母表，四个特殊token，目标词表320或384。不设置有损normalizer，add_prefix_space=False。本地语料28行，重复10遍用于频次。已提交配置用于课堂复现，现场不必重训。不能把该小语料tokenizer称为商用模型的预训练配置。",
-    "code": "tokenizer.train_from_iterator(corpus, trainer=trainer)"
+    "notes": "展示train_tokenizer.py中的Tokenizer(BPE)、ByteLevel、BpeTrainer和save。设置完整256字节基础字母表，四个特殊token，目标词表320或384。不设置有损normalizer，add_prefix_space=False。本地语料28行，重复10遍用于频次。已提交配置用于课堂复现，现场不必重训。不能把该小语料tokenizer称为商用模型的预训练配置。"
   },
   {
     "title": "字节、空格和边界：观察真实编码结果",
@@ -98,13 +96,12 @@
     "minutes": 3,
     "kind": "onehot",
     "bullets": [
-      "E∈R^(V×D)，单个输入 e_i = one_hot(i) E",
-      "batch 输入 I:[B,T] → X:[B,T,D]",
-      "实现直接 gather 选行，不显式创建大 one-hot"
+      "每个 ID 选择参数表的一行，得到 D 维向量",
+      "batch 的每个位置都执行同一次查表操作",
+      "one-hot 乘法用于理解，实际实现直接 gather"
     ],
     "callout": "ID 没有语义距离；表示的可学习几何来自 E 和训练目标。",
-    "notes": "运行embeddings.py的前半段，torch.allclose(lookup,one_hot@E)为True。真实示例E为[320,8]，batch为[2,6]，X为[2,6,8]。one-hot只为验证构造，不建议大词表训练时这么实现。对应重编号并重排行能保持前向结果不变。",
-    "code": "vectors = embedding(ids)  # [B,T] → [B,T,D]"
+    "notes": "运行embeddings.py的前半段，torch.allclose(lookup,one_hot@E)为True。真实示例E为[320,8]，batch为[2,6]，X为[2,6,8]。one-hot只为验证构造，不建议大词表训练时这么实现。对应重编号并重排行能保持前向结果不变。"
   },
   {
     "title": "真实 batch：padding 不等于真实文本",
@@ -125,9 +122,9 @@
     "minutes": 4,
     "kind": "grad",
     "bullets": [
-      "单位置反传得到 g_p = ∂L/∂X_p",
-      "同一 ID 的梯度按所有出现位置累加",
-      "∂L/∂E_j = Σ_{p:I_p=j} g_p"
+      "先得到每个出现位置的向量梯度",
+      "同一参数行可能被多个位置共同读取",
+      "把这些位置的梯度相加，更新共享表行"
     ],
     "callout": "诊断输入 [a,a,b,pad]：求和 loss 的梯度分别是 2、1、0。",
     "notes": "运行embeddings.py后半段，用.sum().backward()明确上游每维梯度是1；a出现两次所以对应行每维2，b每维1，padding lookup为0。这是诊断loss，不是语言模型交叉熵。未用作输入的行在此lookup路径梯度为0；绑定输出权重或施加weight decay时不能把它说成所有训练情形的更新规律。"
@@ -138,13 +135,12 @@
     "minutes": 3,
     "kind": "chain",
     "bullets": [
-      "z = e W_out^T + b，p = softmax(z)",
-      "单位置交叉熵 L = −log p_y",
-      "∂L/∂e = (p − one_hot(y)) W_out"
+      "输入向量经过输出投影，得到各 token 的 logits",
+      "交叉熵衡量正确下一 token 的预测概率",
+      "误差信号右乘输出权重，传回输入向量"
     ],
     "callout": "先得到每次出现的向量梯度，再按 token ID 累加到 E。",
-    "notes": "W_out形状[V,D]，p-y是[V]，右乘得到[D]梯度。写一个正确类别的p_y低时误差大的例子，不推导softmax完整Jacobian。公式按单个位置；实际batch mean loss还包含平均因子。F.cross_entropy直接接原始logits，内部完成log_softmax，不先softmax。",
-    "code": "loss = F.cross_entropy(output(embedding(x)), y)"
+    "notes": "W_out形状[V,D]，p-y是[V]，右乘得到[D]梯度。写一个正确类别的p_y低时误差大的例子，不推导softmax完整Jacobian。公式按单个位置；实际batch mean loss还包含平均因子。F.cross_entropy直接接原始logits，内部完成log_softmax，不先softmax。"
   },
   {
     "title": "运行一次真实的下一 token 训练",
@@ -165,9 +161,9 @@
     "minutes": 2,
     "kind": "tie",
     "bullets": [
-      "输入 embedding 与输出投影可共用 E",
-      "权重绑定：logits = h E^T + b",
-      "同一输入表行固定，经过上下文后的隐藏表示可变"
+      "输入 embedding 与输出投影可共用同一份 E",
+      "输入查表和输出分类，形成两条梯度路径",
+      "输入表行固定，上下文隐藏表示仍可变化"
     ],
     "callout": "绑定权重后，E 会同时接收输入 lookup 与输出分类器的梯度。",
     "notes": "本课bigram代码未绑定，便于先看lookup行更新。若绑定，词表全体候选参与输出softmax，未作为输入的行也可能收到输出梯度；padding_idx只限制lookup路径。设置output.weight=embedding.weight应在创建optimizer之前完成，并用去重的参数迭代器。相似度受训练任务影响，不能把每维解释为固定语义标签。"
@@ -178,12 +174,12 @@
     "minutes": 3,
     "kind": "permutation",
     "bullets": [
-      "行置换 P：Q′=PQ，K′=PK，V′=PV",
-      "分数矩阵随之变成 P(QK^T)P^T",
-      "逐行 softmax 后，Attn(PX)=P Attn(X)"
+      "把 token 行重排，Q/K/V 也对应重排",
+      "分数矩阵的 query 行和 key 列同时重排",
+      "输出跟随输入重排：没有引入固定位置坐标"
     ],
     "callout": "这里假设没有位置机制、没有因果 mask；等变不等于输出完全相同。",
-    "notes": "给出三行token的重排，说明输出随行重排，而非整个矩阵不变。运行position_mechanics.py：无位置时True，给新行位置加PE后False。不要求证明任意网络性质，只连接QK转置和softmax逐行对称性。因果mask并不随任意置换同样改变，所以不满足这里的假设。"
+    "notes": "给出三行token的重排，说明输出随行重排，而非整个矩阵不变。运行position_mechanics.py：无位置时True，给新行位置加PE后False。不要求证明任意网络性质，只连接QK转置和softmax逐行对称性。因果mask并不随任意置换同样改变，所以不满足这里的假设。 用 Π 记行置换，与学习式位置表 P 区分。"
   },
   {
     "title": "绝对位置：学习表与固定函数",
@@ -191,9 +187,9 @@
     "minutes": 3,
     "kind": "absolute",
     "bullets": [
-      "可学习 P:[L,D]，按 token 位置索引查行",
-      "相加式输入 X_p = E[I_p] + P_p",
-      "正弦编码用固定公式，维度与输入一致"
+      "学习式位置表按 token 序号查行",
+      "把内容向量与同维度的位置向量相加",
+      "正弦编码则用固定函数生成位置向量"
     ],
     "callout": "P 的索引是 token 位置；L 限制学习式表能直接查询的范围。",
     "notes": "不要把BPE的字符offset当成token位置。可学习位置表也参与反向传播；正弦表不需要训练其数值。相加式输入与RoPE是不同接口，下一页分别说明，代码不会先加绝对PE又声称相对旋转分数必然保持不变。"
@@ -204,13 +200,12 @@
     "minutes": 3,
     "kind": "frequencies",
     "bullets": [
-      "θ_i=10000^(−2i/D)，第 i 对使用 pθ_i",
-      "PE 的相邻两维为 sin(pθ_i)、cos(pθ_i)",
-      "固定偏移 Δ 可由同一二维线性变换表示"
+      "频率随维度对编号变化，提供多种变化尺度",
+      "每个位置乘以各组频率，得到旋转角度",
+      "相邻两维分别存放角度的 sin 与 cos"
     ],
-    "callout": "sin((p+Δ)θ)=sin(pθ)cos(Δθ)+cos(pθ)sin(Δθ)。",
-    "notes": "D=4时频率1与0.01，沿用上一版四维数值核对。多个频率提供不同变化尺度，单一周期不能代替全部设计。指出pos[:,None]*frequencies[None,:]的广播形状[T,D/2]，而非逐token循环。可计算更大p不等于模型长上下文质量有保证。",
-    "code": "angles = positions[:, None] * frequencies[None, :]"
+    "callout": "从位置 t，到角度 tω，再到每一对维度的 sin / cos。",
+    "notes": "D=4时频率1与0.01，沿用上一版四维数值核对。多个频率提供不同变化尺度，单一周期不能代替全部设计。指出pos[:,None]*frequencies[None,:]的广播形状[T,D/2]，而非逐token循环。可计算更大p不等于模型长上下文质量有保证。 统一记号：ω_i 为频率，θ_{t,i}=tω_i 为角度；分别对应 frequencies 与 angles。"
   },
   {
     "title": "RoPE 二维推导：相对位移从哪来？",
@@ -218,11 +213,11 @@
     "minutes": 3,
     "kind": "rotation",
     "bullets": [
-      "R(φ)=[[cosφ,−sinφ],[sinφ,cosφ]]",
-      "q′_m=R(mθ)q，k′_n=R(nθ)k",
-      "q′_m^T k′_n = q^T R((n−m)θ) k"
+      "每一对维度用二维旋转矩阵变换",
+      "q 按位置 m 旋转，k 按位置 n 旋转",
+      "旋转后的点积出现相对位移 n−m"
     ],
-    "callout": "关键等式：R(mθ)^TR(nθ)=R((n−m)θ)。",
+    "callout": "转置是反向旋转，连续旋转可相加，因此最终角度为 (n−m)ω。",
     "notes": "从二维旋转矩阵的转置等于反向旋转、旋转可相加讲到相对位移，约两步，不展开所有矩阵项。保持未旋转q/k不变、同时平移位置时点积不变；完整模型的q/k可能随上下文变化，所以不推出任意平移文本模型输出不变。"
   },
   {
@@ -231,13 +226,12 @@
     "minutes": 3,
     "kind": "vector_rope",
     "bullets": [
-      "本例按相邻维度配对：even=x[...,0::2]",
-      "每组频率分别旋转，广播到 batch 与 head",
-      "Q/K:[B,H,T,d_h]，对最后一维应用旋转"
+      "把最后一维拆成相邻的 even / odd 分量",
+      "按分量公式旋转，广播到 batch 与 head",
+      "函数保持形状，整合时作用于多头 Q/K"
     ],
     "callout": "RoPE 保持每个向量范数；点积仍会随相对位置改变。",
-    "notes": "展示positions.apply_rope。使用相邻维度配对，另一种split-half实现需有一致的坐标排列；不混用两种配对约定。函数支持[...,T,D]，D必须为正偶数。运行整体位置平移与范数检查，float64分数差在1e-15量级。RoPE作用Q/K，本实现不旋转V。",
-    "code": "rot_even = even*cos - odd*sin\nrot_odd  = even*sin + odd*cos"
+    "notes": "展示positions.apply_rope。使用相邻维度配对，另一种split-half实现需有一致的坐标排列；不混用两种配对约定。函数支持[...,T,D]，D必须为正偶数。运行整体位置平移与范数检查，float64分数差在1e-15量级。RoPE作用Q/K，本实现不旋转V。"
   },
   {
     "title": "三种机制：位置、因果范围与 padding",

@@ -14,6 +14,8 @@
 
 | 文件 | 用途 |
 | --- | --- |
+| [授课主线](teaching_story.md) | 三段内容如何承接、怎样提问和收束 |
+| [知识、公式与代码对照](knowledge_code_map.md) | 每页公式、关键语句、实验编号与预期结果 |
 | [授课 PPT](class2_tokens_embeddings_positions.pptx) | 21 页，含公式、代码接口和逐页讲者备注 |
 | [教案](teacher_guide.md) | 时间安排、板书顺序、实验操作、提问与答案 |
 | [课堂 Notebook](demo.ipynb) | 准备单元 + 12 个实验单元，保留实际输出 |
@@ -79,4 +81,4 @@ python class2/tools/build_materials.py
 python class1/tools/execute_notebook.py class2/demo.ipynb
 ```
 
-PPT 复用第一课绘图工具，需保留完整仓库。重建 Notebook 会清空输出，执行后再保存。
+PPT 复用第一课绘图工具，需保留完整仓库。公式由 `tools/lesson_alignment.py` 统一维护，制作时排成透明高清图片，同时保留 LaTeX 源码；公式图片不能在 PPT 中逐字符修改，可改源码后重建。其他文字和图形仍可编辑。重建 Notebook 会清空输出，执行后再保存。

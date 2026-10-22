@@ -56,7 +56,7 @@ print(embedding.weight.grad.norm(dim=1))
 
 把positions中的整体偏移从5改成9，验证：每向量范数保持；整体平移后的旋转点积相同；只平移K的位置则通常改变点积。
 
-答案：前两项来自正交旋转和 `R(mθ)^TR(nθ)=R((n−m)θ)`。只移K会改变n−m。测试固定未旋转q/k，不能推出改变完整上下文后输出也不变。
+答案：前两项来自正交旋转和 $R(m\omega)^{\mathsf{T}}R(n\omega)=R((n-m)\omega)$。只移K会改变n−m。测试固定未旋转q/k，不能推出改变完整上下文后输出也不变。
 
 ## 8. 三个 padding 接口
 

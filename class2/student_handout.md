@@ -1,10 +1,14 @@
 # 第二课讲义：Tokenizer、Embedding 与位置机制
 
+先读 [授课主线](teaching_story.md)，再用 [知识、公式与代码对照](knowledge_code_map.md) 查找 PPT 页码、Notebook 实验和关键语句。
+
+本课统一记号：$I$ 为 token ID，$\mathbf{E}$ 为参数表，$\mathbf{X}$ 为查表结果；$t$ 为 token 位置，$\omega_i$ 为第 $i$ 对维度的频率，$\theta_{t,i}=t\omega_i$ 为角度。代码依次使用 `ids`、`embedding.weight`、`vectors`、`positions`、`frequencies`、`angles`。
+
 ## 1. Tokenizer：从统计规则到真实编码
 
 ### 1.1 词表大小与序列长度的取舍
 
-词表越大，token 往往能承载更长片段，但 embedding 表 E∈R^(V×D) 和输出投影也随 V 增大。稠密注意力分数矩阵为 T×T，logits 投影还涉及 T×D×V 的计算，不能只用 T² 描述整个模型成本。
+词表越大，token 往往能承载更长片段，但 embedding 表 $\mathbf{E}\in\mathbb{R}^{V\times D}$ 和输出投影也随 $V$ 增大。稠密注意力分数矩阵为 $T\times T$，logits 投影还涉及 $T\times D\times V$ 的计算，不能只用 $T^2$ 描述整个模型成本。
 
 例如 V=32768、D=4096、FP16，单份 E 需 `32768×4096×2=256 MiB`；未绑定的同尺寸输出权重另占一份。这不含梯度、优化器状态或其他层。
 
@@ -12,9 +16,9 @@
 
 对当前相邻片段 a、b 的加权频次：
 
-```text
-S(a,b) = Σ_s f_s × count_s(a,b)
-```
+$$
+S(a,b)=\sum_s f_s\,\operatorname{count}_s(a,b)
+$$
 
 f_s 是文本 s 的出现次数。可读实现逐轮执行：从基础字符开始；统计相邻 pair；按固定并列规则选最高频 pair；合并非重叠出现；重新统计，直到达到合并预算或没有 pair。
 
@@ -60,11 +64,18 @@ abc → ab(rank1)、bc(rank0)
 
 ### 2.1 前向是选行
 
-```text
-E：[V,D]，I：[B,T]
-X = E[I]：[B,T,D]
-e_i = one_hot(i) @ E
-```
+$$
+\mathbf{E}\in\mathbb{R}^{V\times D},\qquad
+I\in\{0,\ldots,V-1\}^{B\times T}
+$$
+
+$$
+\mathbf{X}_{b,t}=\mathbf{E}_{I_{b,t}},\qquad
+\mathbf{X}=\operatorname{one\_hot}(I)\,\mathbf{E}
+\in\mathbb{R}^{B\times T\times D}
+$$
+
+对应 `vectors = embedding(ids)`；$\mathbf{E}$ 就是 `embedding.weight`。
 
 实现直接gather，不显式创建大one-hot。本课 `nn.Embedding(320,8,padding_idx=0)` 输入 `[2,6]`、输出 `[2,6,8]`，可以验证与one-hot乘法的前向等价；这不意味着padding的自定义反向行为也自动等价。[Embedding 官方文档](https://docs.pytorch.org/docs/stable/generated/torch.nn.Embedding.html)
 
@@ -72,11 +83,13 @@ ID没有天然语义大小。E给token提供共同D维、可训练的特征。�
 
 ### 2.2 重复读取同一行，反向必须累加
 
-每个位置反传到X的梯度为g_p：
+每个位置反传到 $\mathbf{X}$ 的梯度为 $\mathbf{g}_{b,t}$。对于非 padding 行 $j$：
 
-```text
-∂L/∂E_j = Σ_{p:I_p=j} g_p
-```
+$$
+\mathbf{g}_{b,t}=\frac{\partial L}{\partial\mathbf{X}_{b,t}},\qquad
+\frac{\partial L}{\partial\mathbf{E}_j}
+=\sum_{(b,t):\,I_{b,t}=j}\mathbf{g}_{b,t}
+$$
 
 多个位置读取同一行，贡献必须相加，不能后一次覆盖前一次。这是gather的反向scatter-add。
 
@@ -88,13 +101,18 @@ ID没有天然语义大小。E给token提供共同D维、可训练的特征。�
 
 单位置、输出权重W_out为 `[V,D]`：
 
-```text
-z = e W_out^T + b
-p = softmax(z)
-L = −log p_y
-∂L/∂z = p − one_hot(y)
-∂L/∂e = (p − one_hot(y)) W_out
-```
+$$
+\mathbf{z}=\mathbf{e}\mathbf{W}_{\rm out}^{\mathsf{T}}+\mathbf{b},\qquad
+\mathbf{p}=\operatorname{softmax}(\mathbf{z}),\qquad L=-\log p_y
+$$
+
+$$
+\frac{\partial L}{\partial\mathbf{z}}=\mathbf{p}-\operatorname{one\_hot}(y),\qquad
+\frac{\partial L}{\partial\mathbf{e}}
+=\bigl(\mathbf{p}-\operatorname{one\_hot}(y)\bigr)\mathbf{W}_{\rm out}
+$$
+
+这里 $\mathbf{e}$ 按行向量书写，对应 `embedding_vector`；$\mathbf{W}_{\rm out}$ 对应 `output_weight`。单位置自动求导实验省略偏置，向量梯度公式不变。
 
 先算每次出现的向量梯度，再按ID累加到E。batch mean loss还包含平均因子。`gradient_chain.py` 把单位置公式与autograd逐项对照。
 
@@ -106,16 +124,23 @@ L = −log p_y
 
 这是只用当前token的bigram基线，不含Attention，不利用完整前文。同一输入可能有多个后续，loss不必归零；无验证集，只能观察训练拟合。
 
-对于只能根据当前token预测的模型，训练集经验条件熵是最优平均交叉熵的下界：`−Σ_{x,y} n(x,y)/N × log(n(x,y)/n(x))`。本数据约0.35583，接近训练终点。这里使用未补齐的相邻pair，不含pad标签；不能据此删除有padding训练任务中的ignore_index。
+对于只能根据当前 token 预测的模型，训练集经验条件熵是最优平均交叉熵的下界：
+
+$$
+H_{\rm emp}(Y\mid X)=-\sum_{x,y}\frac{n(x,y)}{N}\log\frac{n(x,y)}{n(x)}
+$$
+
+$n(x,y)$ 为相邻 pair 的出现次数，$n(x)$ 为输入 $x$ 的总次数。本数据约0.35583，接近训练终点。这里使用未补齐的相邻pair，不含pad标签；不能据此删除有padding训练任务中的ignore_index。
 
 本实验未绑权重、无weight decay，26个实际作为输入的表行发生更新。不能把“只有输入过的行更新”推广到全部训练设置。
 
 ### 2.5 权重绑定增加一条梯度路径
 
-```text
-输入：gather(E,I)
-输出：logits = h E^T + b
-```
+$$
+\text{输入：}\quad\mathbf{X}=\mathbf{E}[I]
+\qquad
+\text{输出：}\quad\mathbf{z}=\mathbf{h}\mathbf{E}^{\mathsf{T}}+\mathbf{b}
+$$
 
 若输出与输入共享E，E同时接收两条路径的梯度。softmax覆盖全部候选，未作为输入的行也可能接收输出梯度；padding_idx只限制lookup路径。绑定应在创建optimizer前完成，并避免重复传入同一参数。
 
@@ -125,38 +150,85 @@ L = −log p_y
 
 ### 3.1 无位置、无遮罩的置换等变性
 
-P为行置换：
+$\Pi$ 为行置换矩阵，$\mathbf{S}$ 为缩放后的注意力分数：
 
-```text
-Q′=PQ，K′=PK，V′=PV
-Q′K′^T = P(QK^T)P^T
-softmax(P S P^T) = P softmax(S) P^T
-Attn(PX) = P Attn(X)
-```
+$$
+\mathbf{Q}'=\Pi\mathbf{Q},\qquad
+\mathbf{K}'=\Pi\mathbf{K},\qquad
+\mathbf{V}'=\Pi\mathbf{V}
+$$
+
+$$
+\mathbf{S}'=\Pi\mathbf{S}\Pi^{\mathsf{T}},\qquad
+\operatorname{softmax}(\mathbf{S}')
+=\Pi\operatorname{softmax}(\mathbf{S})\Pi^{\mathsf{T}}
+$$
+
+$$
+\operatorname{Attn}(\Pi\mathbf{X})=\Pi\operatorname{Attn}(\mathbf{X})
+$$
+
+代码用 `x[permutation]` 重排行，不显式创建 $\Pi$。
 
 输入重排，输出对应重排，叫等变，不是输出矩阵完全不变。因果mask不满足这里的任意置换假设，不能忽略该条件。位置机制把可利用的坐标或相对位移带入运算。
 
 ### 3.2 学习式位置与多频率正弦
 
-相加式 `X_p=E[I_p]+P_p`。学习式表 `[L,D]` 按token位置p查行，直接查询范围受L限制；p不是原文字符offset。
+相加式输入为 $\mathbf{X}_{b,t}=\mathbf{E}[I_{b,t}]+\operatorname{PE}(t)$。学习式表 `[L,D]` 按 token 位置 $t$ 查行，直接查询范围受 $L$ 限制；$t$ 不是原文字符 offset。
 
-```text
-θ_i = 10000^(−2i/D)
-PE(p,2i)   = sin(p θ_i)
-PE(p,2i+1) = cos(p θ_i)
-```
+$$
+\omega_i=10000^{-2i/D},\qquad \theta_{t,i}=t\omega_i
+$$
 
-D=4时频率为1、0.01，通过 `[T,1]×[1,D/2]` 广播生成角度，再交错写入sin/cos。多频率提供不同变化尺度。由三角加法公式，固定偏移Δ可用与p无关的一组二维线性变换表达，给相对偏移提供可学习结构。[原始 Transformer §3.5](https://arxiv.org/html/1706.03762v7)
+$$
+\operatorname{PE}(t,2i)=\sin\theta_{t,i},\qquad
+\operatorname{PE}(t,2i+1)=\cos\theta_{t,i}
+$$
+
+对应 `angles = positions[:, None] * frequencies[None, :]`：位置列乘频率行，得到每个位置、每组频率的角度。
+
+D=4时频率为1、0.01，通过 `[T,1]×[1,D/2]` 广播生成角度，再交错写入sin/cos。多频率提供不同变化尺度。由三角加法公式，固定偏移Δ可用与位置 $t$ 无关的一组二维线性变换表达，给相对偏移提供可学习结构。[原始 Transformer §3.5](https://arxiv.org/html/1706.03762v7)
 
 ### 3.3 RoPE 的二维关键等式
 
-```text
-R(φ) = [[cosφ, −sinφ], [sinφ, cosφ]]
-q′_m = R(mθ)q，k′_n = R(nθ)k
-q′_m^Tk′_n
-  = q^T R(mθ)^T R(nθ) k
-  = q^T R((n−m)θ) k
+$$
+R(\varphi)=
+\begin{bmatrix}
+\cos\varphi & -\sin\varphi\\
+\sin\varphi & \cos\varphi
+\end{bmatrix}
+$$
+
+$$
+\widetilde{\mathbf{q}}_m=R(m\omega)\mathbf{q},\qquad
+\widetilde{\mathbf{k}}_n=R(n\omega)\mathbf{k}
+$$
+
+$$
+\begin{aligned}
+\widetilde{\mathbf{q}}_m^{\mathsf{T}}\widetilde{\mathbf{k}}_n
+&=\mathbf{q}^{\mathsf{T}}R(m\omega)^{\mathsf{T}}R(n\omega)\mathbf{k}\\
+&=\mathbf{q}^{\mathsf{T}}R((n-m)\omega)\mathbf{k}
+\end{aligned}
+$$
+
+上面把一对分量写成列向量，便于画旋转。张量代码按同一个旋转的两个分量直接计算：
+
+$$
+\begin{aligned}
+x'_{2i}&=x_{2i}\cos\theta_{t,i}-x_{2i+1}\sin\theta_{t,i}\\
+x'_{2i+1}&=x_{2i}\sin\theta_{t,i}+x_{2i+1}\cos\theta_{t,i}
+\end{aligned}
+$$
+
+```python
+even, odd = x[..., 0::2], x[..., 1::2]
+cos, sin = angles.cos(), angles.sin()
+result[..., 0::2] = even * cos - odd * sin
+result[..., 1::2] = even * sin + odd * cos
 ```
+
+逐项对应：`even` 是 $x_{2i}$，`odd` 是 $x_{2i+1}$，`angles` 是 $\theta_{t,i}$。RoPE 中频率分母使用传入的旋转维度，多头实验中是 $d_h$。
 
 位置以相对位移进入旋转点积。多维特征按二维配对，各组用不同频率。旋转保持范数，但通常改变向量间点积。[RoFormer 推导](https://arxiv.org/html/2104.09864v5)
 

@@ -10,6 +10,8 @@ from pptx import Presentation
 from pptx.util import Inches
 
 from figures import draw
+from formulas import draw_panel, write_alignment
+from lesson_alignment import LINKS, experiment_label
 
 ROOT = Path(__file__).resolve().parents[1]
 base_tools = ROOT.parent / "class1/tools"
@@ -42,24 +44,40 @@ def build_slides():
             y = 2.02 + i * 1.05
             c.node(.65, y, .38, .38, str(i+1), drawing.GOLD, 13)
             c.text(1.2, y+.02, 5.45, .93, bullet, 19)
-        if item.get("code"):
-            c.rect(.65, 5.18, 6.03, .66, drawing.INK)
-            c.text(.83, 5.27, 5.66, .5, item["code"], 12, "FFFFFF")
-        draw(c, item["kind"])
+        link = LINKS.get(item["kind"])
+        if link:
+            c.text(.7, 5.25, 5.9, .26, experiment_label(link), 13, drawing.TEAL, bold=True)
+            file = link["file"].replace("../tools/", "tools/")
+            c.text(.7, 5.58, 5.9, .25, file+" · "+link["function"], 12, drawing.MUTED)
+        if link and link.get("formulas"):
+            draw_panel(c, link, ROOT, item["kind"])
+        else:
+            draw(c, item["kind"])
         c.rect(.65, 6.12, 12.02, .69, drawing.LIGHT)
         c.text(.87, 6.28, 11.57, .45, item["callout"], 17, drawing.TEAL, bold=True)
         c.text(.65, 7.07, 9.2, .25, "TRANSFORMER NEWBIE  /  CLASS 2  /  TOKEN · EMBEDDING · POSITION", 10, drawing.MUTED)
         c.text(11.73, 7.07, .92, .25, f"{number:02d} / {len(items):02d}", 10, drawing.MUTED, center=True)
-        slide.notes_slide.notes_text_frame.text = f"第 {number} 页｜{start}–{end} 分钟\n{item['notes']}"
+        notes = f"第 {number} 页｜{start}–{end} 分钟\n{item['notes']}"
+        if link:
+            notes += f"\n对应：{experiment_label(link)}，{file}:{link['function']}\n观察：{link['result']}"
+        slide.notes_slide.notes_text_frame.text = notes
         previews.append(c.image)
         text += [f"\n## {number:02d}. {item['title']}（{start}–{end} 分钟）\n",
                  "\n".join("- "+b for b in item["bullets"]), "\n> "+item["callout"],
                  "\n**授课提示**："+item["notes"]]
-        if item.get("code"):
-            text += ["\n```python\n"+item["code"]+"\n```"]
+        if link:
+            text += ["\n**对应实验**："+experiment_label(link)+"；`"+file+":"+link["function"]+"`。"]
+            for formula in link.get("formulas", []):
+                text += ["\n$$\n"+formula+"\n$$"]
+            if link.get("symbols"):
+                text += ["\n"+link["symbols"]+"。"]
+            if link.get("code"):
+                text += ["\n```python\n"+"\n".join(link["code"])+"\n```"]
+            text += ["\n**运行观察**："+link["result"]+"。"]
     assert minute == 60
     ppt.save(ROOT / "class2_tokens_embeddings_positions.pptx")
     (ROOT / "slides.md").write_text("\n".join(text).rstrip()+"\n", encoding="utf-8")
+    write_alignment(ROOT, items)
     (ROOT / "assets").mkdir(exist_ok=True)
     sheet = Image.new("RGB", (1440, math.ceil(len(items)/3)*290), "#D9E0E4")
     output = ROOT / "outputs/slide_previews"

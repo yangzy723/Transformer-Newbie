@@ -1,3 +1,4 @@
 # 制作 PPT、执行 Notebook，包括本课运行依赖。
 -r requirements.txt
 -r ../class1/requirements-tools.txt
+matplotlib>=3.9,<4

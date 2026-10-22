@@ -1,8 +1,11 @@
 """机制版课堂 Notebook：公式、真实接口与可执行验证相互对应。"""
 import ast
 import inspect
+import json
+import re
 
 import nbformat as nbf
+from lesson_alignment import LINKS, source_label
 
 
 def function_source(root, file, name):
@@ -30,6 +33,7 @@ def build(root):
     课堂主讲标注的核心语句；辅助函数的完整实现可在 code/ 中查看。""")
     code('''from pathlib import Path
     from collections import Counter
+    import math
     import sys
     import torch
     from torch import nn
@@ -90,37 +94,42 @@ def build(root):
     对 `[a,a,b,pad]` 的输出求和，上游每维都是1。a行收到两次贡献，b一次，pad的lookup梯度为0。
     这只是诊断loss。`padding_idx`不会自动屏蔽Attention或loss；权重绑定时还有输出梯度路径。""")
     code('''a, b = tokenizer.encode("我喜欢喝牛奶。").ids[:2]
+    repeated = torch.tensor([[a, a, b, pad]])
     embedding.zero_grad()
-    embedding(torch.tensor([[a, a, b, pad]])).sum().backward()
+    embedding(repeated).sum().backward()
     print("a行梯度：", embedding.weight.grad[a].tolist())
     print("b行梯度：", embedding.weight.grad[b].tolist())
     print("pad行梯度：", embedding.weight.grad[pad].tolist())''')
     md("""## 7. 单位置交叉熵梯度：手算与 autograd 对齐
 
-    `z=eW^T`，`p=softmax(z)`，`∂L/∂e=(p−one_hot(y))W`。本例一个位置，不含batch平均因子。
+    先算 logits 和类别概率，再将预测误差乘回输出权重。本例一个位置，不含 batch 平均因子。
     将手算结果与自动求导逐项比较。""")
     code('''torch.manual_seed(7)
-    e = torch.randn(1, 4, dtype=torch.float64, requires_grad=True)
-    W = torch.randn(6, 4, dtype=torch.float64)
+    embedding_vector = torch.randn(1, 4, dtype=torch.float64, requires_grad=True)
+    output_weight = torch.randn(6, 4, dtype=torch.float64)
     target = torch.tensor([2])
-    logits = e @ W.T
-    F.cross_entropy(logits, target).backward()
-    manual = (logits.detach().softmax(-1) - F.one_hot(target, 6)) @ W
-    print("autograd：", e.grad.tolist())
-    print("手算：", manual.tolist())
-    torch.testing.assert_close(e.grad, manual)''')
+    logits = embedding_vector @ output_weight.T
+    loss = F.cross_entropy(logits, target)
+    loss.backward()
+    probabilities = logits.detach().softmax(dim=-1)
+    error = probabilities - F.one_hot(target, 6)
+    manual_gradient = error @ output_weight
+    print("autograd：", embedding_vector.grad.tolist())
+    print("手算：", manual_gradient.tolist())
+    torch.testing.assert_close(embedding_vector.grad, manual_gradient)''')
     md("""## 8. 真实下一 token 损失更新 embedding
 
     七句文本构成57对相邻token。`Embedding → Linear → CrossEntropy` 是bigram基线：每次只看一个token。
     输出原始logits给交叉熵。没有验证集；观察训练拟合，不把它称为Transformer。""")
     code('''torch.manual_seed(7)
     x, y = bigram_batch(tokenizer)
-    token_embedding = nn.Embedding(tokenizer.get_vocab_size(), 16)
-    head = nn.Linear(16, tokenizer.get_vocab_size())
-    optimizer = torch.optim.Adam(list(token_embedding.parameters()) + list(head.parameters()), lr=0.05)
-    before = token_embedding.weight.detach().clone()
+    embedding = nn.Embedding(tokenizer.get_vocab_size(), 16)
+    output = nn.Linear(16, tokenizer.get_vocab_size())
+    optimizer = torch.optim.Adam(list(embedding.parameters()) + list(output.parameters()), lr=0.05)
+    before = embedding.weight.detach().clone()
     for step in range(121):
-        loss = F.cross_entropy(head(token_embedding(x)), y)
+        logits = output(embedding(x))
+        loss = F.cross_entropy(logits, y)
         if step % 30 == 0:
             print(step, round(float(loss.detach()), 4))
         if step == 120:
@@ -128,13 +137,23 @@ def build(root):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-    print("改变表行数：", int(((token_embedding.weight.detach()-before).norm(dim=1) > 0).sum()))''')
+    print("改变表行数：", int(((embedding.weight.detach()-before).norm(dim=1) > 0).sum()))''')
     md("""## 9. 无位置、无遮罩的注意力：置换等变
 
     重排输入后输出也对应重排。给重新排列的token使用新的当前位置编码，则通常不再满足这一等式。
     这里用Q=K=V=X做最小验证，因果mask不在该等变结论的假设中。""")
-    code('''from position_mechanics import demo as check_permutation
-    check_permutation()''')
+    code(function_source(root, "position_mechanics.py", "attention") + '''
+
+torch.manual_seed(7)
+x = torch.randn(3, 4, dtype=torch.float64)
+permutation = torch.tensor([2, 0, 1])
+original = attention(x)
+rearranged = attention(x[permutation])
+print("无位置时等变：", torch.allclose(rearranged, original[permutation]))
+from positions import sinusoidal
+pe = sinusoidal(torch.arange(3), 4)
+print("加入位置后仍等变：",
+      torch.allclose(attention(x[permutation]+pe), attention(x+pe)[permutation]))''')
     md("""## 10. 向量化正弦位置编码
 
     `[T,1] × [1,D/2] → [T,D/2]` 的广播产生各位置、各频率的角度。
@@ -142,7 +161,7 @@ def build(root):
     code(function_source(root, "positions.py", "sinusoidal") + '\n\nprint(sinusoidal(torch.arange(3), 4).round(decimals=4))')
     md("""## 11. RoPE：成对旋转与相对位移
 
-    q′=R(mθ)q，k′=R(nθ)k，所以q′^Tk′=q^TR((n−m)θ)k。
+    q/k 分别按位置 m/n 旋转，利用旋转矩阵的转置和角度相加性质，点积中出现位置之差。
     实现采用相邻维度配对，输入可为`[...,T,D]`，广播到batch和head。整体平移位置测试固定未旋转的Q/K内容。""")
     code(function_source(root, "positions.py", "apply_rope") + '''
 
@@ -157,12 +176,35 @@ print("范数保持：", torch.allclose(q.norm(dim=-1), apply_rope(q, p).norm(di
 
     打开`code/input_pipeline.py`，核对每步shape。此分支直接在Q/K使用RoPE，不叠加相加式绝对位置。
     参数是随机初始化；脚本不包含完整Block、语言模型训练或生成循环。""")
-    code('''from input_pipeline import demo as input_pipeline
-    pipeline_result = input_pipeline()''')
+    code(function_source(root, "input_pipeline.py", "demo").replace("def demo():", "def input_pipeline():")
+         + '\n\npipeline_result = input_pipeline()')
     md("""## 复习与作业
 
     解释：rank与最长前缀为何不同？重复token梯度为何累加？绑定输入输出权重后谁还会更新？
     RoPE与因果mask各控制什么？详见 [练习](exercises.md) 与 [讲义](student_handout.md)。""")
+    # 同一索引驱动 PPT、对照表和 Notebook，避免实验编号与公式各自维护。
+    primary = {1: ["bpe_train"], 2: ["rank"], 3: ["hf_pipeline"], 4: ["byte"],
+               5: ["onehot"], 6: ["grad"], 7: ["chain"], 8: ["training"],
+               9: ["permutation"], 10: ["frequencies"],
+               11: ["rotation", "vector_rope"], 12: ["mask", "pipeline"]}
+    slides = json.loads((root / "slides.json").read_text(encoding="utf-8"))
+    slide_numbers = {item["kind"]: i for i, item in enumerate(slides, 1)}
+    for cell in cells:
+        if cell.cell_type != "markdown":
+            continue
+        match = re.match(r"## (\d+)\.", cell.source)
+        if not match:
+            continue
+        for kind in primary[int(match.group(1))]:
+            link = LINKS[kind]
+            cell.source += (f"\n\n**PPT {slide_numbers[kind]:02d}** · "
+                            f"[{source_label(link)}](code/{link['file']})")
+            for formula in link.get("formulas", []):
+                cell.source += "\n\n$$\n" + formula + "\n$$"
+            if link.get("symbols"):
+                cell.source += "\n\n" + link["symbols"] + "。"
+            cell.source += "\n\n**运行后核对**：" + link["result"] + "。"
+    cells[0].source += "\n\n备课和复习可查看 [知识、公式与代码对照](knowledge_code_map.md)。"
     notebook = nbf.v4.new_notebook(cells=cells)
     notebook.metadata = {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"}, "language_info": {"name": "python", "file_extension": ".py"}}
     nbf.write(notebook, root / "demo.ipynb")

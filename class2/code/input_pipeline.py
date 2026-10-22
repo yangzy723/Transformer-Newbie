@@ -24,7 +24,8 @@ def demo():
     scores = q @ k.transpose(-2, -1) / math.sqrt(width // heads)
     future = torch.ones(length, length, dtype=torch.bool).triu(1)
     forbidden = future[None, None, :, :] | ~valid[:, None, None, :]
-    weights = scores.masked_fill(forbidden, float("-inf")).softmax(dim=-1)
+    masked = scores.masked_fill(forbidden, -torch.inf)
+    weights = masked.softmax(dim=-1)
     output = (weights @ v).transpose(1, 2).contiguous().view(batch, length, width)
     output = output.masked_fill(~valid[:, :, None], 0)
     print("ID / embedding：", list(ids.shape), list(x.shape))

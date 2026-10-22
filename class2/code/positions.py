@@ -9,7 +9,8 @@ def sinusoidal(positions, width):
     frequencies = 10000.0 ** (-torch.arange(0, width, 2, dtype=torch.float64) / width)
     angles = positions[:, None] * frequencies[None, :]
     result = torch.empty(len(positions), width, dtype=torch.float64)
-    result[:, 0::2], result[:, 1::2] = angles.sin(), angles.cos()
+    result[:, 0::2] = angles.sin()
+    result[:, 1::2] = angles.cos()
     return result
 
 
@@ -21,9 +22,10 @@ def apply_rope(x, positions):
     frequencies = 10000.0 ** (-torch.arange(0, width, 2, device=x.device, dtype=x.dtype) / width)
     angles = positions[:, None] * frequencies[None, :]
     even, odd = x[..., 0::2], x[..., 1::2]
+    cos, sin = angles.cos(), angles.sin()
     result = torch.empty_like(x)
-    result[..., 0::2] = even * angles.cos() - odd * angles.sin()
-    result[..., 1::2] = even * angles.sin() + odd * angles.cos()
+    result[..., 0::2] = even * cos - odd * sin
+    result[..., 1::2] = even * sin + odd * cos
     return result
 
 
