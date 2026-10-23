@@ -46,7 +46,7 @@ def build(root):
     from bpe_core import merge_pair, BPE_CORPUS
     from runtime import load_tokenizer, make_batch
     from embedding_train import bigram_batch
-    from worked_examples import lookup_example, gradient_example, cross_entropy_example, rope_example, mask_example
+    from worked_examples import lookup_example, gradient_example, cross_entropy_example, rope_example, rotate_pair, mask_example
     torch.set_num_threads(1)
     ''')
     md("""## 1. BPE 训练：频次怎样影响每轮选择？
@@ -168,9 +168,17 @@ print("加入位置后仍等变：",
     code(function_source(root, "positions.py", "sinusoidal") + '\n\nprint(sinusoidal(torch.arange(3), 4).round(decimals=4))')
     md("""## 11. RoPE：成对旋转与相对位移
 
-    q/k 分别按位置 m/n 旋转，利用旋转矩阵的转置和角度相加性质，点积中出现位置之差。
-    实现采用相邻维度配对，输入可为`[...,T,D]`，广播到batch和head。整体平移位置测试固定未旋转的Q/K内容。""")
-    code(function_source(root, "positions.py", "apply_rope") + '''
+    把两个分量看成一支箭头。先设每前进一格转30°：位置1/3的箭头指向30°/90°；
+    两位置一起加2后，箭头指向90°/150°。两次夹角都是60°，点积都是0.5。
+    `rotate_pair`复现这张图；`apply_rope`把同一旋转推广到多对维度，按各自频率计算弧度。
+    下方对多维Q/K核对整体位置平移与长度保持。""")
+    code(function_source(root, "worked_examples.py", "rotate_pair") + '''
+
+q1, k3 = rotate_pair([1., 0.], 1), rotate_pair([1., 0.], 3)
+q3, k5 = rotate_pair([1., 0.], 3), rotate_pair([1., 0.], 5)
+print("30°图解：原位置 / 整体移2格后的点积：", round(float(q1 @ k3), 4), round(float(q3 @ k5), 4))
+print("[1,0]转30°：", q1.round(decimals=4).tolist())
+''' + function_source(root, "positions.py", "apply_rope") + '''
 
 torch.manual_seed(7)
 q, k = torch.randn(2, 3, 4, dtype=torch.float64)
@@ -180,7 +188,7 @@ shifted = apply_rope(q, p+5) @ apply_rope(k, p+5).T
 print("整体平移后最大差异：", float((score-shifted).abs().max()))
 print("范数保持：", torch.allclose(q.norm(dim=-1), apply_rope(q, p).norm(dim=-1)))
 small_rope = rope_example()
-print("二维PPT算例：", round(small_rope["score"], 4), round(small_rope["shifted_score"], 4))''')
+print("标准频率二维算例：", round(small_rope["score"], 4), round(small_rope["shifted_score"], 4))''')
     md("""## 12. 接口整合：真实ID、多头Q/K、RoPE、两种mask
 
     打开`code/input_pipeline.py`，核对每步shape。此分支直接在Q/K使用RoPE，不叠加相加式绝对位置。

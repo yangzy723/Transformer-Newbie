@@ -10,11 +10,11 @@ def vector(values,digits=4):
 
 
 def prose(c, x, y, width, texts, size=18, gap=.07):
-    font=ImageFont.truetype(c.font_path,round(size*120/72))
+    font=ImageFont.truetype(c.font_path,round(size*c.scale/72))
     for text in texts:
         n,current=1,""
         for char in text:
-            if c.draw.textlength(current+char,font=font)>width*120-5:
+            if c.draw.textlength(current+char,font=font)>width*c.scale-6:
                 n+=1
                 current=char
             else:
@@ -64,11 +64,10 @@ CODE={
     "grad":["loss = (embedding(ids) * upstream).sum()","loss.backward()  # worked_examples.gradient_example"],
     "chain":["loss = F.cross_entropy(logits, target)","loss.backward()  # 将概率误差传回 embedding_vector"],
     "training":["logits = output(embedding(x)); loss = F.cross_entropy(logits, y)","optimizer.zero_grad(); loss.backward(); optimizer.step()"],
-    "tie":["head.weight = tied_embedding.weight","# 必须在创建 optimizer 前绑定；避免重复传入同一个参数"],
+    "tie":["head.weight = tied_embedding.weight","optimizer = torch.optim.Adam(model.parameters(), lr=0.01)"],
     "permutation":["rearranged = attention(x[permutation])","torch.allclose(rearranged, original[permutation])"],
     "absolute":["pe = sinusoidal(torch.arange(3), 4)","absolute_original = attention(x + pe)"],
     "frequencies":["angles = positions[:, None] * frequencies[None, :]","result[:, 0::2], result[:, 1::2] = angles.sin(), angles.cos()"],
-    "rotation":["qr, kr = apply_rope(q, [1]), apply_rope(k, [3])","score = (qr * kr).sum()  # 同时平移两个位置，点积保持"],
     "vector_rope":["result[..., 0::2] = even * cos - odd * sin","result[..., 1::2] = even * sin + odd * cos"],
     "mask":["forbidden = future | ~valid[None, :]  # 四位置算例","weights = scores.masked_fill(forbidden, -torch.inf).softmax(-1)"],
 }
@@ -77,18 +76,14 @@ CODE={
 def formula_detail(c,item,link,root,report,worked):
     kind=item["kind"]
     c.rect(.60,2.06,12.10,.98,WHITE)
-    if kind=="rotation":
-        for expression,bounds in zip(link["formulas"],((.8,2.12,3.5,.81),(4.6,2.12,7.7,.81))):
-            eq(c,root,kind,expression,*bounds,size=32)
-    else:
-        expressions=KEY_FORMULAS[kind]
-        h=.88/len(expressions)
-        for i,expression in enumerate(expressions):
-            eq(c,root,kind,expression,.92,2.10+i*h,11.46,h-.02,size=32)
+    expressions=KEY_FORMULAS[kind]
+    h=.88/len(expressions)
+    for i,expression in enumerate(expressions):
+        eq(c,root,kind,expression,.92,2.10+i*h,11.46,h-.02,size=32)
     panel(c,.60,3.21,5.86,2.12,"机制：每个量在做什么")
     title="S全0、末列为pad：注意力权重" if kind=="mask" else "算例：跟着数值走一遍"
     panel(c,6.66,3.21,6.04,2.12,title)
-    if kind not in ("rotation","frequencies"):
+    if kind!="frequencies":
         end=prose(c,.82,3.75,5.40,item["explanation"][:2])
         if end>5.30:
             raise ValueError(f"解释过长：{kind}，结束于{end}")
@@ -109,7 +104,7 @@ def formula_detail(c,item,link,root,report,worked):
         c.text(x,y,5.5,.33,"p−one_hot(y) = "+vector(d["error"]),20,BLUE)
         c.text(x,y+.40,5.5,.34,"W_out 三行：[1,0]、[0,1]、[−1,0.5]",18,INK)
         c.text(x,y+.80,5.5,.37,"向量梯度 = "+vector(d["vector_gradient"]),23,GREEN,bold=True)
-        c.text(x,y+1.28,5.5,.32,"这只是三类算术例；真实类别数为 V。",18,MUTED)
+        c.text(x,y+1.28,5.5,.32,"目标类的概率偏低，误差经 W_out 传回。",18,MUTED)
     elif kind=="training":
         rows=report["history"]
         c.text(x,y,5.5,.35,"步数       0          30         120",20,MUTED)
@@ -133,18 +128,6 @@ def formula_detail(c,item,link,root,report,worked):
         c.text(x,y+.46,5.5,.33,"PE(1) ≈ [0.8415, 0.5403,",21,TEAL)
         c.text(x+.88,y+.83,4.4,.34,"0.0100, 1.0000]",21,TEAL)
         c.text(x,y+1.28,5.5,.32,"高低频率提供不同的位置变化尺度。",18,MUTED)
-    elif kind=="rotation":
-        eq(c,root,kind,r"R(m\omega)^{\mathsf{T}}=R(-m\omega)",.88,3.74,5.35,.48,size=27)
-        eq(c,root,kind,r"R(-m\omega)R(n\omega)=R((n-m)\omega)",.88,4.25,5.35,.46,size=25)
-        c.text(.85,4.91,5.35,.33,"固定未旋转 q/k；只讨论位置变化。",18,MUTED)
-        c.text(x,y,5.5,.34,"二维算例：q=k=[1,0]，ω=1",20,INK)
-        c.text(x,y+.44,5.5,.35,"m=1，n=3 → 点积 cos(2)",21,BLUE)
-        c.text(x,y+.86,5.5,.36,f"数值 ≈ {worked['position']['score']:.4f}",24,GREEN,bold=True)
-        c.text(x,y+1.28,5.5,.33,"m=6，n=8：差仍为2，点积相同。",18,MUTED)
-    elif kind=="vector_rope":
-        c.text(x,y,5.5,.34,"一对分量：[1,0]，旋转角 θ=1",20,INK)
-        c.text(x,y+.46,5.5,.38,"→ "+vector(worked["position"]["q_rotated"]),24,BLUE,bold=True)
-        prose(c,x,y+.98,5.45,["平方和仍为1，所以范数保持。实现按相邻维度配对；split-half 需要匹配的坐标排列。"],18)
     elif kind=="mask":
         from fractions import Fraction
         for i,row in enumerate(worked["mask"]["weights"]):
@@ -190,11 +173,10 @@ def concept_slide(c,item,worked):
     elif kind=="lesson_scope":
         lesson_scope(c)
     elif kind=="hf_pipeline":
-        panel(c,.60,2.08,5.85,3.25,"合并规则以外，还要固定哪些步骤？")
+        panel(c,.60,2.08,5.85,3.25,"字节、边界、合并：各自负责什么？")
         prose(c,.84,2.66,5.37,item["explanation"],18)
-        c.text(.84,5.40,5.37,.69,"基础字节负责覆盖；预切分规定边界；merges 决定合并次序。",19,BLUE)
-        panel(c,6.65,2.08,6.05,3.25,"API位置示意；完整参数见实验3")
-        lines=["Tokenizer(models.BPE(...))","pre_tokenizers.ByteLevel(...)","trainers.BpeTrainer(...)","tokenizer.train_from_iterator(...)","tokenizer.save(...)  # 完整 JSON"]
+        panel(c,6.65,2.08,6.05,3.25,"对应分词器的五个步骤")
+        lines=["Tokenizer(models.BPE(...))","pre_tokenizers.ByteLevel(...)","trainers.BpeTrainer(...)","tokenizer.train_from_iterator(...)","tokenizer.save(...)"]
         for i,line in enumerate(lines):
             c.text(6.89,2.67+i*.46,5.60,.34,line,18,INK,mono=True)
         code_band(c,["tokenizer = load_tokenizer()  # 加载冻结的完整配置","enc = tokenizer.encode(text)  # 查看 tokens、ids、offsets"])
@@ -205,7 +187,7 @@ def concept_slide(c,item,worked):
         c.text(.84,4.09,5.35,.40,"词表 A：奶茶 → 7",23,INK)
         c.text(.84,4.59,5.35,.40,"词表 B：咖啡 → 7",23,TEAL)
         panel(c,6.65,3.53,6.05,1.80,"只换词表会怎样？")
-        prose(c,6.89,4.09,5.57,["模型原先把 E[7] 当作奶茶的表示。只替换词表后，咖啡会读到原来的参数行。","这不是向量算错，而是 ID 与参数地址约定失配。"],18)
+        prose(c,6.89,4.09,5.57,["模型原先把 E[7] 当作奶茶的表示。只替换词表后，咖啡会读到原来的参数行。","词表配置与参数表，必须成套加载。"],18)
         c.text(.86,5.70,11.5,.38,"默认特殊符号：pad=0，unk=1，bos=2，eos=3；本课显式添加 bos/eos。",20,MUTED)
     elif kind=="lookup":
         panel(c,.60,2.08,12.10,2.0,"B=2，T=6：t₁…t₄ 是普通 token；起止标记也占位置")
@@ -242,51 +224,89 @@ def concept_slide(c,item,worked):
 
 
 def architecture_review(c):
-    panel(c,.60,2.08,5.45,4.16,"生成数据流：每轮预测一个新 token")
-    rows=["文本 → Tokenizer → IDs [B,T]",
-          "Embedding → X [B,T,D]",
-          "Decoder Block × L → H [B,T,D]",
-          "Norm + LM Head → logits [B,T,V]",
-          "最后位置：Softmax → 选下一 token"]
-    for i,text in enumerate(rows):
-        y=2.65+i*.64
-        fill=PALE if i!=2 else "DFF0ED"
-        c.rect(.98,y,4.76,.48,fill)
-        c.text(1.07,y+.08,4.58,.35,text,18,BLUE if i!=2 else GREEN,center=True)
+    panel(c,.60,2.08,5.52,4.16,"整条路径：预测下一个 token")
+    rows=[("01", "文本 → Tokenizer", "IDs [B,T]"),
+          ("02", "Embedding 查表", "X [B,T,D]"),
+          ("03", "Decoder Block × L", "H [B,T,D]"),
+          ("04", "Norm + LM Head", "logits [B,T,V]"),
+          ("05", "最后位置的 Softmax", "选择下一 ID")]
+    for i,(number,label,shape) in enumerate(rows):
+        y=2.65+i*.61
+        c.rect(.85,y,5.02,.48,"DFF0ED" if i==2 else PALE)
+        c.text(.96,y+.075,.42,.32,number,16,MUTED)
+        c.text(1.48,y+.065,2.65,.34,label,18,INK)
+        c.text(4.12,y+.09,1.60,.30,shape,15,BLUE,center=True)
         if i<4:
-            c.line(3.36,y+.49,3.36,y+.62,arrow=True)
-    # 将采样结果接回前文；回路留在节点左侧，避免跨过文字。
-    c.line(3.36,5.70,3.36,5.95)
-    c.line(3.36,5.95,.79,5.95)
-    c.line(.79,5.95,.79,2.57)
-    c.line(.79,2.57,5.12,2.57)
-    c.line(5.12,2.57,5.12,2.63,arrow=True)
-    c.text(1.17,6.00,4.35,.31,"生成的 ID 接回序列，继续下一轮。",18,MUTED)
-    panel(c,6.25,2.08,6.45,4.16,"单层 Decoder Block 展开（Pre-Norm）")
-    boxes=["归一化 Norm", "因果 MHA：Q/K 用 RoPE", "+ 输入 x（残差）",
-           "归一化 Norm", "FFN / MLP：逐位置加工", "+ 中间 h（残差）"]
-    for i,text in enumerate(boxes):
-        y=2.70+i*.50
-        color="DFF0ED" if i==1 else PALE
-        c.rect(8.00,y,3.62,.42,color)
-        c.text(8.08,y+.045,3.46,.34,text,18,GREEN if i==1 else INK,center=True)
-        if i<5:
-            c.line(9.81,y+.425,9.81,y+.49,arrow=True)
-    # x -> Norm -> Attention -> Add(x)，跳过的仍是同一个输入 x。
-    c.line(9.81,2.51,9.81,2.68,arrow=True)
-    c.line(9.81,2.56,7.22,2.56,TEAL)
-    c.line(7.22,2.56,7.22,3.91,TEAL)
-    c.line(7.22,3.91,7.98,3.91,TEAL,arrow=True)
-    c.text(6.48,3.22,.62,.34,"x",20,TEAL,center=True)
-    # h = x + Attention(Norm(x))；h 同时进入 FFN 路径与第二条残差。
-    c.line(9.81,4.16,12.15,4.16,TEAL)
-    c.line(12.15,4.16,12.15,5.41,TEAL)
-    c.line(12.15,5.41,11.64,5.41,TEAL,arrow=True)
-    c.text(12.23,4.35,.34,.34,"h",18,TEAL,center=True)
-    c.line(9.81,5.63,9.81,5.82,arrow=True)
-    c.text(7.75,5.91,4.15,.33,"输出仍为 [B,T,D]，再送下一层。",18,MUTED,center=True)
-    c.text(.80,6.37,11.70,.30,"B：句子数；T：token数；D：每个token的向量维度；V：词表大小。",18,MUTED)
+            c.line(3.36,y+.49,3.36,y+.60,arrow=True)
+    c.text(.93,5.84,4.95,.34,"把新 ID 追加到序列，再预测下一项。",18,BLUE)
+    panel(c,6.34,2.08,6.36,4.16,"单层 Block：混合上下文，再加工特征")
+    # Residual routes occupy their own left / right lanes.
+    nodes=[("Norm",2.78),("因果多头 Attention · Q/K 用 RoPE",3.29),
+           ("＋ 输入 x",3.80),("Norm",4.31),("FFN / MLP",4.82),("＋ 中间 h",5.33)]
+    for text,y in nodes:
+        c.rect(7.65,y,3.75,.40,"DFF0ED" if y==3.29 else PALE)
+        c.text(7.75,y+.05,3.55,.31,text,16 if y==3.29 else 18,INK,center=True)
+        if y<5.33:
+            c.line(9.52,y+.41,9.52,y+.50,arrow=True)
+    c.line(9.52,2.59,9.52,2.77,arrow=True)
+    c.line(9.52,2.63,7.03,2.63)
+    c.line(7.03,2.63,7.03,4.00)
+    c.line(7.03,4.00,7.63,4.00,arrow=True)
+    c.text(6.65,3.15,.29,.31,"x",18,TEAL)
+    c.line(9.52,4.23,12.02,4.23)
+    c.line(12.02,4.23,12.02,5.53)
+    c.line(12.02,5.53,11.42,5.53,arrow=True)
+    c.text(12.17,4.62,.28,.31,"h",18,TEAL)
+    c.line(9.52,5.74,9.52,5.85,arrow=True)
+    c.text(7.15,5.93,4.82,.31,"每层输入、输出都保持 [B,T,D]。",18,MUTED,center=True)
+    c.text(.82,6.38,11.8,.28,"B 句子数    T 序列长度    D 向量维度    V 词表大小",16,MUTED)
 
+
+def arrow_pair(c,cx,cy,positions):
+    import math
+    radius=.86
+    # A light circle and a horizontal origin show what rotates.
+    for degree in range(0,360,6):
+        a,b=math.radians(degree),math.radians(degree+6)
+        c.line(cx+radius*math.cos(a),cy-radius*math.sin(a),
+               cx+radius*math.cos(b),cy-radius*math.sin(b),"DCE3ED")
+    c.line(cx-.98,cy,cx+1.00,cy,"CBD5E1")
+    c.line(cx,cy+.24,cx,cy-1.02,"CBD5E1")
+    for position,color in zip(positions,(BLUE,TEAL)):
+        theta=math.radians(position*30)
+        c.line(cx,cy,cx+radius*math.cos(theta),cy-radius*math.sin(theta),color,arrow=True)
+    # The small arc spans the angle between the two arrows.
+    for degree in range(positions[0]*30,positions[1]*30,3):
+        a,b=math.radians(degree),math.radians(degree+3)
+        c.line(cx+.43*math.cos(a),cy-.43*math.sin(a),
+               cx+.43*math.cos(b),cy-.43*math.sin(b),"8B9BB0")
+
+
+def rope_geometry(c,root,worked):
+    for x,title,positions in ((.60,"① 位置 1 和 3",(1,3)),(6.75,"② 两个位置都向后移 2 格",(3,5))):
+        panel(c,x,2.08,5.95,3.17,title)
+        arrow_pair(c,x+1.38,4.03,positions)
+        c.text(x+2.65,2.88,3.03,.37,f"Q：位置 {positions[0]} → {positions[0]*30}°",21,BLUE,bold=True)
+        c.text(x+2.65,3.38,3.03,.37,f"K：位置 {positions[1]} → {positions[1]*30}°",21,TEAL,bold=True)
+        c.text(x+2.65,4.02,3.03,.37,"夹角仍为 60°",22,INK,bold=True)
+        c.text(x+2.65,4.52,3.03,.33,"位置相差 2 格",19,MUTED)
+    c.rect(.60,5.47,12.10,.78,WHITE)
+    c.text(.83,5.64,5.0,.35,"单位箭头的点积 = 夹角的余弦",20,INK)
+    eq(c,root,"rotation",r"\cos((3-1)\times30^\circ)=\cos60^\circ=0.5",6.00,5.59,6.40,.47,size=28)
+    # The scale is part of the example, not the frequency of the full implementation.
+    c.text(.83,6.37,11.8,.27,"图解设定：Q、K 起初都为 [1,0]，每格旋转 30°。实验 11：rotate_pair",15,MUTED)
+
+
+def rope_tensor(c,root,worked):
+    panel(c,.60,2.08,5.85,3.25,"高维向量：拆成多支二维箭头")
+    c.text(.84,2.64,5.37,.36,"[ x₀, x₁ | x₂, x₃ | x₄, x₅ | … ]",22,BLUE,bold=True)
+    prose(c,.84,3.18,5.37,["第 i 对的角度：θ = 位置 t × 频率 ωᵢ。","例如 d_h=4：两对维度的频率为 1、0.01；同一位置，一对转得快，一对转得慢。","Q 和 K 都这样转，再做点积；V 保留原来的内容向量。"],19,gap=.13)
+    panel(c,6.65,2.08,6.05,3.25,"一支箭头怎样转？公式逐项对应代码")
+    eq(c,root,"vector_rope",KEY_FORMULAS["vector_rope"][0],6.89,2.66,5.56,.51,size=29)
+    eq(c,root,"vector_rope",KEY_FORMULAS["vector_rope"][1],6.89,3.26,5.56,.51,size=29)
+    c.text(6.91,4.00,5.52,.34,"原来的两个坐标 → 旋转后的两个坐标",19,MUTED)
+    c.text(6.91,4.52,5.52,.37,"[1,0] 转 30° → [0.8660, 0.5000]",21,BLUE,bold=True)
+    code_band(c,CODE["vector_rope"])
 
 def lesson_scope(c):
     panel(c,.60,2.08,12.10,1.25,"上节课的人工算例：“我 / 喜欢 / 喝” → 下一 token")
@@ -300,14 +320,18 @@ def lesson_scope(c):
         panel(c,x,3.55,3.90,2.40,title)
         c.text(x+.21,4.10,3.48,.66,interface,20,BLUE,bold=True)
         prose(c,x+.21,4.83,3.48,[before,today],18,gap=.06)
-    c.text(.85,6.08,11.55,.31,"位置的两条路径是不同方案；上节课的数值来自人工参数，今天逐步补全真实机制。",18,MUTED)
+    c.text(.85,6.12,11.55,.31,"今天的目标：说明每个接口为什么这样设计，并在代码里找到对应运算。",18,MUTED)
 
 
 def draw_detail(c,item,link,root,report,worked):
     kind=item["kind"]
     if kind in ("bpe_train","rank"):
         worked_bpe(c,root,worked,kind=="bpe_train")
-    elif kind in KEY_FORMULAS or kind=="rotation":
+    elif kind=="rotation":
+        rope_geometry(c,root,worked)
+    elif kind=="vector_rope":
+        rope_tensor(c,root,worked)
+    elif kind in KEY_FORMULAS:
         formula_detail(c,item,link,root,report,worked)
     else:
         concept_slide(c,item,worked)

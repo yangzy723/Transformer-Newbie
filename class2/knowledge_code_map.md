@@ -301,11 +301,19 @@ result[:, 1::2] = angles.cos()
 
 **定位**：Notebook 实验 11；[code/positions.py:apply_rope](code/positions.py)。
 
-- 一对维度用二维旋转R；转置相当于反向旋转，两次旋转的角度相加。
-- q、k按mω、nω旋转后，点积里出现(n−m)ω，因此相对位移影响分数。
-- 二维算例m=1,n=3,q=k=[1,0]得到cos(2)≈−0.4161；两位置同时加5结果不变。
+- 先把一对分量看成一支箭头：内容决定原来的方向，位置再让它旋转。
+- 图解让每个位置多转30°：位置1和3对应30°、90°，夹角60°，单位向量点积为0.5。
+- 两位置同时加2，箭头变为90°、150°；夹角仍为60°，点积仍为0.5。
 
 **页内数值算例**：[worked_examples.py:rope_example](code/worked_examples.py)。
+
+**箭头图解**：每格30°，位置1/3一起移动到3/5，夹角仍为60°；图解函数为 `worked_examples.rotate_pair`。
+
+```python
+q1, k3 = rotate_pair([1., 0.], 1), rotate_pair([1., 0.], 3)
+q3, k5 = rotate_pair([1., 0.], 3), rotate_pair([1., 0.], 5)
+print(q1 @ k3, q3 @ k5)  # 两次均为 0.5
+```
 
 $$
 R(\varphi)=\begin{bmatrix}\cos\varphi&-\sin\varphi\\\sin\varphi&\cos\varphi\end{bmatrix}
@@ -330,9 +338,9 @@ result[..., 1::2] = even * sin + odd * cos
 
 **定位**：Notebook 实验 11；[code/positions.py:apply_rope](code/positions.py)。
 
-- 把相邻维度分成even/odd两组，分别实现旋转矩阵的两个分量。
-- Q/K形状[B,H,T,d_h]，角度[T,d_h/2]广播到batch和head，旋转后形状保持。
-- 相邻配对与split-half是不同坐标约定；本实现只旋转Q/K，不旋转V。
+- 把相邻分量分成(x0,x1)、(x2,x3)等二维箭头；第i对旋转角为tω_i。
+- d_h=4时两对维度频率为1、0.01：一对变化快，一对变化慢。
+- 分量旋转公式对应even/odd两行代码；角度[T,d_h/2]广播到Q/K的[B,H,T,d_h]，V保持原样。
 
 **页内数值算例**：[worked_examples.py:rope_example](code/worked_examples.py)。
 

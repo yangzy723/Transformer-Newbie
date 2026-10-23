@@ -58,6 +58,15 @@ def cross_entropy_example():
             "output_weight": output_weight.tolist(), "vector_gradient": manual.tolist()[0]}
 
 
+def rotate_pair(x, position, degrees_per_step=30.):
+    """二维图解：每前进一个位置转30°；标准多频率实现见 apply_rope。"""
+    x = torch.as_tensor(x, dtype=torch.float64)
+    angle = torch.tensor(position * degrees_per_step * torch.pi / 180, dtype=x.dtype)
+    a, b = x.unbind(-1)
+    return torch.stack((a * angle.cos() - b * angle.sin(),
+                        a * angle.sin() + b * angle.cos()), dim=-1)
+
+
 def rope_example():
     q = k = torch.tensor([[1., 0.]], dtype=torch.float64)
     qr, kr = apply_rope(q, [1]), apply_rope(k, [3])
@@ -65,7 +74,16 @@ def rope_example():
     shifted = (apply_rope(q, [6]) * apply_rope(k, [8])).sum()
     torch.testing.assert_close(score, shifted)
     torch.testing.assert_close(score, torch.cos(torch.tensor(2., dtype=torch.float64)))
-    return {"q": q.tolist()[0], "k": k.tolist()[0], "m": 1, "n": 3,
+    q1, k3 = rotate_pair([1., 0.], 1), rotate_pair([1., 0.], 3)
+    q3, k5 = rotate_pair([1., 0.], 3), rotate_pair([1., 0.], 5)
+    intuition_score, intuition_shifted = q1 @ k3, q3 @ k5
+    torch.testing.assert_close(intuition_score, intuition_shifted)
+    torch.testing.assert_close(intuition_score, torch.tensor(.5, dtype=torch.float64))
+    return {"intuition": {"degrees_per_step": 30, "positions": [1, 3],
+                          "shifted_positions": [3, 5], "q1": q1.tolist(), "k3": k3.tolist(),
+                          "q3": q3.tolist(), "k5": k5.tolist(),
+                          "score": float(intuition_score), "shifted_score": float(intuition_shifted)},
+            "q": q.tolist()[0], "k": k.tolist()[0], "m": 1, "n": 3,
             "q_rotated": qr.tolist()[0], "k_rotated": kr.tolist()[0],
             "score": float(score), "shifted_score": float(shifted),
             "pe_width4": sinusoidal(torch.arange(3), 4).tolist()}
@@ -103,5 +121,6 @@ if __name__ == "__main__":
     print("小表查行：", report["lookup"]["selected"])
     print("重复行梯度：", report["gradient"]["row_gradients"][1])
     print("三类 CE / 向量梯度：", round(report["cross_entropy"]["loss"], 4), report["cross_entropy"]["vector_gradient"])
+    print("30°图解点积 / 平移后：", round(report["position"]["intuition"]["score"], 4), round(report["position"]["intuition"]["shifted_score"], 4))
     print("RoPE 点积 / 平移后：", round(report["position"]["score"], 4), round(report["position"]["shifted_score"], 4))
     print("最后一列 padding key 权重：", [row[-1] for row in report["mask"]["weights"]])

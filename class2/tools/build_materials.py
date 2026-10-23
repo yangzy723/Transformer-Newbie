@@ -11,7 +11,7 @@ from pptx.util import Inches
 
 from formulas import write_alignment
 from lesson_alignment import LINKS, experiment_label
-from slide_design import DESIGN, canvas_class, header, reference
+from slide_design import DESIGN, canvas_class, header, reference, save_vector_pdf, validate_layout
 from detail_slides import draw_detail
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,7 +23,6 @@ spec.loader.exec_module(drawing)
 
 
 def build_slides():
-    drawing.FONT = drawing.find_font()
     items = json.loads((ROOT / "slides.json").read_text(encoding="utf-8"))
     ppt = Presentation()
     ppt.slide_width, ppt.slide_height = Inches(13.333333), Inches(7.5)
@@ -31,7 +30,8 @@ def build_slides():
     ppt.core_properties.subject = "Transformer 输入表示，60 分钟"
     ppt.core_properties.author = "Transformer Newbie"
     previews, text, minute = [], ["# 第二课：Tokenizer、Embedding 与位置机制\n"], 0
-    Canvas = canvas_class(drawing.Canvas, drawing.FONT)
+    Canvas = canvas_class(drawing.Canvas)
+    canvases = []
     report = json.loads((ROOT / "assets/training_report.json").read_text(encoding="utf-8"))
     sys.path.insert(0,str(ROOT / "code"))
     from worked_examples import build_report
@@ -58,12 +58,16 @@ def build_slides():
                 notes += "\n投影代码出自 position_mechanics.py:demo；位置函数来自 positions.py:sinusoidal。"
         slide.notes_slide.notes_text_frame.text = notes
         previews.append(c.image)
-        layout_report.append({"slide":number,"title":title,"text":c.text_metrics})
+        canvases.append(c)
+        layout_report.append({"slide":number,"title":title,"text":c.text_metrics,"ink":c.ink_boxes})
         text += [f"\n## {number:02d}. {title}（{start}–{end} 分钟）\n",
                  subtitle, "\n".join("- "+b for b in item.get("explanation",item["bullets"])), "\n> "+takeaway,
                  "\n**授课提示**："+item["notes"]]
         if link:
             text += ["\n**对应实验**："+experiment_label(link)+"；`"+file+":"+link["function"]+"`。"]
+            if link.get("visual_code"):
+                text += ["\n**箭头图解**：每格30°；位置1/3和3/5的点积均为0.5。",
+                         "\n```python\n"+"\n".join(link["visual_code"])+"\n```"]
             for formula in link.get("formulas", []):
                 text += ["\n$$\n"+formula+"\n$$"]
             if link.get("symbols"):
@@ -72,10 +76,9 @@ def build_slides():
                 text += ["\n```python\n"+"\n".join(link["code"])+"\n```"]
             text += ["\n**运行观察**："+link["result"]+"。"]
     assert minute == 60
+    validation = validate_layout(canvases)
     ppt.save(ROOT / "class2_tokens_embeddings_positions.pptx")
-    previews[0].save(ROOT / "class2_tokens_embeddings_positions.pdf", "PDF", resolution=120,
-                     save_all=True,append_images=previews[1:],quality=95,
-                     title="第二课：Tokenizer、Embedding 与位置机制")
+    save_vector_pdf(canvases, ROOT / "class2_tokens_embeddings_positions.pdf")
     (ROOT / "slides.md").write_text("\n".join(text).rstrip()+"\n", encoding="utf-8")
     write_alignment(ROOT, items)
     (ROOT / "assets").mkdir(exist_ok=True)
@@ -89,6 +92,7 @@ def build_slides():
         sheet.paste(thumbnail, ((i%3)*640+6, (i//3)*382+6))
     sheet.save(ROOT / "assets/slides_preview.jpg", quality=90)
     (output / "layout_report.json").write_text(json.dumps(layout_report, ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+    (output / "validation.json").write_text(json.dumps(validation,indent=2)+"\n")
     # 独立示例供浏览，无需先打开整个 PPT。
     for name, index in (("tokenizer",2),("opening",0),("scope",1),("bpe_training",2),
                         ("bpe_encoding",3),("embedding",8),("rope",15)):

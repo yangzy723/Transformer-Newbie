@@ -110,6 +110,9 @@ LINKS = {
         "code": ["cos, sin = angles.cos(), angles.sin()", "result[..., 0::2] = even * cos - odd * sin", "result[..., 1::2] = even * sin + odd * cos"],
         "result": "固定 q/k 内容：点积由相对位置 n−m 调节",
         "question": "为什么按绝对位置旋转，却产生相对位移？",
+        "visual_code": ["q1, k3 = rotate_pair([1., 0.], 1), rotate_pair([1., 0.], 3)",
+                        "q3, k5 = rotate_pair([1., 0.], 3), rotate_pair([1., 0.], 5)",
+                        "print(q1 @ k3, q3 @ k5)  # 两次均为 0.5"],
     },
     "vector_rope": {
         "experiment": 11, "file": "positions.py", "function": "apply_rope",

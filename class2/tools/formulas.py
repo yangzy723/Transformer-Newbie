@@ -55,8 +55,9 @@ def place_formula(canvas, expression, destination, x, y, width, height, font_siz
                                              width=Inches(placed_w), height=Inches(placed_h))
     picture.name = "Formula: " + expression
     picture._element.nvPicPr.cNvPr.set("descr", expression)
-    preview = formula.resize((round(placed_w*120), round(placed_h*120)), Image.Resampling.LANCZOS)
-    canvas.image.paste(preview, (round(left*120), round(top*120)), preview)
+    preview = formula.resize((round(placed_w*canvas.scale), round(placed_h*canvas.scale)), Image.Resampling.LANCZOS)
+    canvas.image.paste(preview, (round(left*canvas.scale), round(top*canvas.scale)), preview)
+    canvas.pdf_ops.append(("image", (formula.copy(),left,top,placed_w,placed_h)))
 
 
 def write_alignment(root, slides):
@@ -84,6 +85,9 @@ def write_alignment(root, slides):
             text += ["\n".join("- "+s for s in item["explanation"])+"\n"]
         if link.get("worked_function"):
             text += [f"**页内数值算例**：[worked_examples.py:{link['worked_function']}](code/worked_examples.py)。\n"]
+        if link.get("visual_code"):
+            text += ["**箭头图解**：每格30°，位置1/3一起移动到3/5，夹角仍为60°；图解函数为 `worked_examples.rotate_pair`。\n",
+                     "```python\n"+"\n".join(link["visual_code"])+"\n```\n"]
         for formula in link.get("formulas", []):
             text += ["$$\n"+formula+"\n$$\n"]
         if link.get("symbols"):
