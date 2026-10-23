@@ -1,5 +1,18 @@
 # 第二课机制地图
 
+## 与第一课衔接：完整生成架构
+
+```text
+初始文本 → Tokenizer → IDs[B,T] → Embedding[B,T,D]
+  → Decoder Block × L（图示采用Pre-Norm与RoPE）
+       h = x + CausalMHA(Norm(x))       # Q/K内使用RoPE
+       out = h + FFN(Norm(h))          # 输出仍为[B,T,D]
+  → 最终Norm → LM Head → logits[B,T,V]
+  → 最后位置的候选概率 → 选择下一ID → 追加到ID序列，继续生成
+```
+
+第一课计算过Q/K匹配、V混合和输出候选选择。本课把输入端的Tokenizer、Embedding与位置机制讲具体。相加式PE是另一条位置接口，不与上面的RoPE路径混为一次必需叠加。
+
 ## 输入链路与两类学习
 
 ```text

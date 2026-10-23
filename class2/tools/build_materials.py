@@ -89,8 +89,8 @@ def build_slides():
         sheet.paste(thumbnail, ((i%3)*640+6, (i//3)*382+6))
     sheet.save(ROOT / "assets/slides_preview.jpg", quality=90)
     (output / "layout_report.json").write_text(json.dumps(layout_report, ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
-    # 三张独立示例供浏览，无需先打开整个 PPT。
-    for name, index in (("tokenizer",2),("opening",0),("budget",1),("bpe_training",2),
+    # 独立示例供浏览，无需先打开整个 PPT。
+    for name, index in (("tokenizer",2),("opening",0),("scope",1),("bpe_training",2),
                         ("bpe_encoding",3),("embedding",8),("rope",15)):
         previews[index].save(ROOT / f"assets/preview_{name}.png")
 

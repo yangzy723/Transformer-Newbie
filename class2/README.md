@@ -26,14 +26,15 @@
 | [运行记录](sample_run.md) | 真实输出和训练指标 |
 | [PPT 文字版](slides.md) | 备课检索 |
 | [排版预览](assets/slides_preview.jpg) | 同一绘图源的总览，非 PowerPoint 导出截图 |
+| 开场回顾 | [完整架构](assets/preview_opening.png) · [本课范围](assets/preview_scope.png) |
 | 单页示例 | [BPE训练](assets/preview_bpe_training.png) · [BPE编码](assets/preview_bpe_encoding.png) · [梯度累加](assets/preview_embedding.png) · [RoPE](assets/preview_rope.png) |
 
 ## 时间安排
 
 | 时间 | PPT | 内容 |
 | --- | --- | --- |
-| 0–3 分钟 | 1 | 目标、符号与输入链路 |
-| 3–20 分钟 | 2–6 | 计算取舍、BPE 训练与编码、真实 ByteLevel 配置 |
+| 0–6 分钟 | 1–2 | 回顾完整生成架构与第一课计算，定位本课三个主题 |
+| 6–20 分钟 | 3–6 | BPE 训练与编码、真实 ByteLevel 配置与参数地址 |
 | 20–39 分钟 | 7–12 | batch 查表、梯度累加、交叉熵、实际训练和权重绑定 |
 | 39–56 分钟 | 13–18 | 置换等变性、正弦编码、RoPE 推导与 mask |
 | 56–58 分钟 | 19 | 真实 ID 到多头 Attention 的接口整合 |

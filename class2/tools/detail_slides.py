@@ -186,36 +186,9 @@ def worked_bpe(c,root,worked,training):
 def concept_slide(c,item,worked):
     kind=item["kind"]
     if kind=="opening":
-        panel(c,.60,2.08,7.35,3.20,"例子：把“我喜欢喝牛奶。”送进模型")
-        rows=[("文本 → ID","[300,304,262]","固定的 tokenizer 规则"),
-              ("ID → 向量","E[300]、E[304]、E[262]","可训练参数；初始可以随机"),
-              ("加入位置","位置 0、1、2 → Q/K 的关系","同一 ID 查同一行，位置另处理")]
-        for i,(a,b,d) in enumerate(rows):
-            y=2.65+i*.78
-            c.text(.86,y,2.20,.37,a,22,BLUE,bold=True)
-            c.text(3.02,y,4.55,.37,b,20,INK)
-            c.text(3.02,y+.36,4.55,.32,d,18,MUTED)
-        c.text(.86,4.96,6.8,.31,"这里先看普通token；batch页再加入起止标记与pad。",18,MUTED)
-        panel(c,8.15,2.08,4.55,3.20,"最终用途：预测下一个 token")
-        prose(c,8.40,2.68,4.03,["模型计算候选 token 的概率，通过预测误差调整参数。","本课先看输入怎么构造；下一课再深入信息怎样在 token 之间交互。","B=句子数，T=序列长度，V=词表项数，D=向量维度。"],18)
-        c.text(.86,5.66,11.6,.53,"三件事：规则决定读哪些片段；参数学习怎么表示；位置补上顺序关系。",23,BLUE,bold=True)
-    elif kind=="budget":
-        panel(c,.60,2.08,12.10,2.70,"同一句“我喜欢喝奶茶”：不同切分粒度的取舍（示意）")
-        rows=[("按字","我 / 喜 / 欢 / 喝 / 奶 / 茶","6","片段短，序列更长"),
-              ("按整词","我 / 喜欢 / 喝 / 奶茶","4","需要词边界，词表可能更大"),
-              ("本例 BPE","我 / 喜欢喝奶茶","2","高频合并，新组合复用片段")]
-        for i,(a,b,n,d) in enumerate(rows):
-            y=2.72+i*.58
-            c.text(.85,y,1.5,.38,a,22,BLUE,bold=True)
-            c.text(2.5,y,4.5,.38,b,21,INK)
-            c.text(7.20,y,1.1,.38,n+"项",22,TEAL)
-            c.text(8.50,y,3.9,.40,d,19,MUTED)
-        c.text(.84,4.43,11.55,.30,"BPE 的 2 项来自后面奶茶小语料的4次合并，不代表商用模型一定这样切。",18,MUTED)
-        panel(c,.60,4.98,5.95,1.25,"单份 E：D=4096，FP16，每参数2字节")
-        c.text(.84,5.49,5.47,.52,"V=32k → 256 MiB；64k → 512 MiB",20,BLUE)
-        panel(c,6.75,4.98,5.95,1.25,"序列相关开销：稠密 scores 的格数")
-        c.text(6.99,5.49,5.47,.52,"T=6 → 36格；T=2 → 4格",22,TEAL)
-        c.text(.84,6.36,11.55,.3,"输出投影还涉及 T×D×V；上面只比较单份E与稠密scores，不代表全部模型成本。",18,MUTED)
+        architecture_review(c)
+    elif kind=="lesson_scope":
+        lesson_scope(c)
     elif kind=="hf_pipeline":
         panel(c,.60,2.08,5.85,3.25,"合并规则以外，还要固定哪些步骤？")
         prose(c,.84,2.66,5.37,item["explanation"],18)
@@ -266,6 +239,68 @@ def concept_slide(c,item,worked):
             c.text(2.50,y+.48,9.7,.35,"核对："+answer,20,MUTED)
     else:
         raise ValueError(kind)
+
+
+def architecture_review(c):
+    panel(c,.60,2.08,5.45,4.16,"生成数据流：每轮预测一个新 token")
+    rows=["文本 → Tokenizer → IDs [B,T]",
+          "Embedding → X [B,T,D]",
+          "Decoder Block × L → H [B,T,D]",
+          "Norm + LM Head → logits [B,T,V]",
+          "最后位置：Softmax → 选下一 token"]
+    for i,text in enumerate(rows):
+        y=2.65+i*.64
+        fill=PALE if i!=2 else "DFF0ED"
+        c.rect(.98,y,4.76,.48,fill)
+        c.text(1.07,y+.08,4.58,.35,text,18,BLUE if i!=2 else GREEN,center=True)
+        if i<4:
+            c.line(3.36,y+.49,3.36,y+.62,arrow=True)
+    # 将采样结果接回前文；回路留在节点左侧，避免跨过文字。
+    c.line(3.36,5.70,3.36,5.95)
+    c.line(3.36,5.95,.79,5.95)
+    c.line(.79,5.95,.79,2.57)
+    c.line(.79,2.57,5.12,2.57)
+    c.line(5.12,2.57,5.12,2.63,arrow=True)
+    c.text(1.17,6.00,4.35,.31,"生成的 ID 接回序列，继续下一轮。",18,MUTED)
+    panel(c,6.25,2.08,6.45,4.16,"单层 Decoder Block 展开（Pre-Norm）")
+    boxes=["归一化 Norm", "因果 MHA：Q/K 用 RoPE", "+ 输入 x（残差）",
+           "归一化 Norm", "FFN / MLP：逐位置加工", "+ 中间 h（残差）"]
+    for i,text in enumerate(boxes):
+        y=2.70+i*.50
+        color="DFF0ED" if i==1 else PALE
+        c.rect(8.00,y,3.62,.42,color)
+        c.text(8.08,y+.045,3.46,.34,text,18,GREEN if i==1 else INK,center=True)
+        if i<5:
+            c.line(9.81,y+.425,9.81,y+.49,arrow=True)
+    # x -> Norm -> Attention -> Add(x)，跳过的仍是同一个输入 x。
+    c.line(9.81,2.51,9.81,2.68,arrow=True)
+    c.line(9.81,2.56,7.22,2.56,TEAL)
+    c.line(7.22,2.56,7.22,3.91,TEAL)
+    c.line(7.22,3.91,7.98,3.91,TEAL,arrow=True)
+    c.text(6.48,3.22,.62,.34,"x",20,TEAL,center=True)
+    # h = x + Attention(Norm(x))；h 同时进入 FFN 路径与第二条残差。
+    c.line(9.81,4.16,12.15,4.16,TEAL)
+    c.line(12.15,4.16,12.15,5.41,TEAL)
+    c.line(12.15,5.41,11.64,5.41,TEAL,arrow=True)
+    c.text(12.23,4.35,.34,.34,"h",18,TEAL,center=True)
+    c.line(9.81,5.63,9.81,5.82,arrow=True)
+    c.text(7.75,5.91,4.15,.33,"输出仍为 [B,T,D]，再送下一层。",18,MUTED,center=True)
+    c.text(.80,6.37,11.70,.30,"B：句子数；T：token数；D：每个token的向量维度；V：词表大小。",18,MUTED)
+
+
+def lesson_scope(c):
+    panel(c,.60,2.08,12.10,1.25,"上节课的人工算例：“我 / 喜欢 / 喝” → 下一 token")
+    c.text(.85,2.62,11.58,.35,"Q/K 匹配 → Softmax 权重 ≈ [0.248,0.248,0.503] → 加权混合 V",21,INK)
+    c.text(.85,3.02,11.58,.31,"混合向量 ≈ [0.752,0.752] → 输出映射 → 酒 / 牛奶的概率 ≈ [0.680,0.320]",19,BLUE)
+    cards=[("01  Tokenizer","文本 → IDs [B,T]","上节课：按空格切分。","今天：BPE 怎样学规则、怎样执行？"),
+           ("02  Embedding","ID → 向量 [B,T,D]","上节课：人工二维向量。","今天：怎样查表、怎样通过训练更新？"),
+           ("03  位置编码","位置 t → 注意力的位置关系","上节课：认识顺序的作用。","今天：输入加 PE，或在 Q/K 上用 RoPE。")]
+    for i,(title,interface,before,today) in enumerate(cards):
+        x=.60+i*4.10
+        panel(c,x,3.55,3.90,2.40,title)
+        c.text(x+.21,4.10,3.48,.66,interface,20,BLUE,bold=True)
+        prose(c,x+.21,4.83,3.48,[before,today],18,gap=.06)
+    c.text(.85,6.08,11.55,.31,"位置的两条路径是不同方案；上节课的数值来自人工参数，今天逐步补全真实机制。",18,MUTED)
 
 
 def draw_detail(c,item,link,root,report,worked):

@@ -4,6 +4,14 @@
 
 本课统一记号：$I$ 为 token ID，$\mathbf{E}$ 为参数表，$\mathbf{X}$ 为查表结果；$t$ 为 token 位置，$\omega_i$ 为第 $i$ 对维度的频率，$\theta_{t,i}=t\omega_i$ 为角度。代码依次使用 `ids`、`embedding.weight`、`vectors`、`positions`、`frequencies`、`angles`。
 
+## 0. 回顾：本课位于模型架构的哪里
+
+沿用第一课的Decoder-only生成主线：文本经Tokenizer编码为ID，Embedding产生向量，经过多层Decoder Block，再由最终归一化和输出映射得到词表logits。生成时使用最后一个位置的logits计算候选概率，选择下一ID并追加到序列。
+
+每个Pre-Norm Block包含归一化、因果多头Attention、FFN和两次残差相加；这些操作在本课开场用来定位，后续课程再逐项实现。架构图选RoPE作用于Q/K，本课也比较输入端相加式正弦PE；这是两条不同的位置接口。
+
+第一课的“我/喜欢/喝”用空格切分和人工二维向量，算出了混合向量约[0.752,0.752]及酒/牛奶两候选概率约[0.680,0.320]。第二课把分词规则、参数表和位置信息的来源补全。
+
 ## 1. Tokenizer：从统计规则到真实编码
 
 ### 1.1 词表大小与序列长度的取舍
