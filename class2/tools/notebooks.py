@@ -43,39 +43,41 @@ def build(root):
     ROOT = next(p for p in [Path.cwd(), Path.cwd() / "class2", Path.cwd().parent]
                 if (p / "code/bpe_core.py").exists())
     sys.path.insert(0, str(ROOT / "code"))
-    from bpe_core import merge_pair
+    from bpe_core import merge_pair, BPE_CORPUS
     from runtime import load_tokenizer, make_batch
     from embedding_train import bigram_batch
+    from worked_examples import lookup_example, gradient_example, cross_entropy_example, rope_example, mask_example
     torch.set_num_threads(1)
     ''')
     md("""## 1. BPE 训练：频次怎样影响每轮选择？
 
     对每个当前相邻 pair 累加 `句子频次 × 出现次数`，选最高频，再重新统计。
     这里是可读的字符级算法，负责解释规则；真实 ByteLevel 库在后面另训练。""")
-    code(function_source(root, "bpe_core.py", "train_bpe") + '\n\ncorpus = {"我喜欢喝牛奶": 5, "你喜欢喝牛奶": 3, "我喜欢喝酒": 2}\nmerges, history = train_bpe(corpus, 4)\nfor row in history:\n    print(row)')
+    code(function_source(root, "bpe_core.py", "train_bpe") + '\n\ncorpus = BPE_CORPUS\nprint("奶茶语料：", corpus)\nmerges, history = train_bpe(corpus, 4)\nfor row in history:\n    print(row)')
     md("""## 2. BPE 编码：rank 优先，而非最长匹配
 
-    重叠候选 `ab`、`bc` 谁先合并？当前候选的最小 rank 决定顺序。
+    先执行上一页奶茶语料学到的四条规则，打印每一步切分；再看重叠候选 `ab`、`bc` 谁先合并。
     `bc×6、ab×5、abc×1` 会学到 `bc` 优先于 `ab`，编码 `abc` 得到 `a/bc`。""")
-    code(function_source(root, "bpe_core.py", "encode_bpe") + '\n\nconflict_merges, _ = train_bpe({"bc": 6, "ab": 5, "abc": 1}, 2)\nprint("规则：", conflict_merges)\nprint("rank 编码：", encode_bpe("abc", conflict_merges))')
+    code(function_source(root, "bpe_core.py", "encode_bpe") + '\n\nresult, trace = encode_bpe("你喜欢喝奶茶", merges)\nfor row in trace:\n    print(row["rank"], " / ".join(row["after"]))\nprint("新组合：", encode_bpe("你喜欢喝咖啡", merges)[0])\nconflict_merges, _ = train_bpe({"bc": 6, "ab": 5, "abc": 1}, 2)\nprint("重叠反例规则：", conflict_merges)\nprint("rank 编码：", encode_bpe("abc", conflict_merges))')
     md("""## 3. 用真实库训练并保存完整配置
 
     `ByteLevel` 预切分、256个基础字节符号、4个特殊符号、BPE合并组成配置。
-    当前单元训练一个本地对象；后续实验使用仓库已保存的320/384配置，以固定ID。
+    当前单元训练一个本地对象；后续实验使用仓库已保存的320项配置，以固定ID。
     小语料只用于机制观察，不是商用模型的 tokenizer。""")
     code('SPECIALS = ["<pad>", "<unk>", "<bos>", "<eos>"]\n\n' + function_source(root, "train_tokenizer.py", "train") + '\n\nfresh = train(320)\nprint("新训练词表大小：", fresh.get_vocab_size())\nprint("冻结配置词表大小：", load_tokenizer().get_vocab_size())')
-    md("""## 4. 对照词表规模、空格、标点与未见字节
+    md("""## 4. 固定配置：文本、ID 与参数地址配套
 
-    观察内部 token 字符串、ID、offsets 和整串回解。ByteLevel token 不一定能单独解成完整汉字。
-    `Hello world!` 在本次320/384配置下分别为9/5项；并非每个文本都会缩短。""")
-    code('''for size in (320, 384):
-        tokenizer = load_tokenizer(size)
-        for text in ["我喜欢喝牛奶。", "Hello world!", "Hello, world!", "未见过的字🦄"]:
-            enc = tokenizer.encode(text)
-            print(size, repr(text), len(enc.ids), enc.tokens, enc.ids)
-            print("offsets / 回解相同：", enc.offsets, tokenizer.decode(enc.ids) == text)
+    先结束字符级奶茶演示，再切换到真实 ByteLevel 配置。两者的片段、ID不能混用。
+    查看默认文本的ID与四个特殊符号。bos/eos由batch函数显式添加，不假定encode自动插入。""")
+    code('''tokenizer = load_tokenizer()
+    text = "我喜欢喝牛奶。"
+    enc = tokenizer.encode(text)
+    print("tokens：", enc.tokens)
+    print("IDs：", enc.ids)
+    print("回解：", tokenizer.decode(enc.ids))
+    print("特殊ID：", {s: tokenizer.token_to_id(s) for s in ["<pad>", "<unk>", "<bos>", "<eos>"]})
     tokenizer = load_tokenizer()
-    print("预切分：", tokenizer.pre_tokenizer.pre_tokenize_str("Hello, world!"))''')
+    assert enc.ids == [300, 304, 262]''')
     md("""## 5. batch 查表与 one-hot 前向等价
 
     IDs `[B,T]` → 表E `[V,D]` → 向量 `[B,T,D]`。
@@ -88,7 +90,8 @@ def build(root):
     one_hot = F.one_hot(ids, tokenizer.get_vocab_size()).to(vectors.dtype)
     print("IDs / E / X：", list(ids.shape), list(embedding.weight.shape), list(vectors.shape))
     print("前向等价：", torch.allclose(vectors, one_hot @ embedding.weight))
-    print("valid mask：", valid.tolist())''')
+    print("valid mask：", valid.tolist())
+    print("PPT算术小表（独立ID）：", lookup_example())''')
     md("""## 6. gather 反传：同一行的梯度累加
 
     对 `[a,a,b,pad]` 的输出求和，上游每维都是1。a行收到两次贡献，b一次，pad的lookup梯度为0。
@@ -99,7 +102,8 @@ def build(root):
     embedding(repeated).sum().backward()
     print("a行梯度：", embedding.weight.grad[a].tolist())
     print("b行梯度：", embedding.weight.grad[b].tolist())
-    print("pad行梯度：", embedding.weight.grad[pad].tolist())''')
+    print("pad行梯度：", embedding.weight.grad[pad].tolist())
+    print("非全1上游梯度：", gradient_example())''')
     md("""## 7. 单位置交叉熵梯度：手算与 autograd 对齐
 
     先算 logits 和类别概率，再将预测误差乘回输出权重。本例一个位置，不含 batch 平均因子。
@@ -116,7 +120,10 @@ def build(root):
     manual_gradient = error @ output_weight
     print("autograd：", embedding_vector.grad.tolist())
     print("手算：", manual_gradient.tolist())
-    torch.testing.assert_close(embedding_vector.grad, manual_gradient)''')
+    torch.testing.assert_close(embedding_vector.grad, manual_gradient)
+    small_ce = cross_entropy_example()
+    print("PPT三类CE：", round(small_ce["loss"], 4))
+    print("PPT输入梯度：", [round(v, 4) for v in small_ce["vector_gradient"]])''')
     md("""## 8. 真实下一 token 损失更新 embedding
 
     七句文本构成57对相邻token。`Embedding → Linear → CrossEntropy` 是bigram基线：每次只看一个token。
@@ -146,7 +153,7 @@ def build(root):
 
 torch.manual_seed(7)
 x = torch.randn(3, 4, dtype=torch.float64)
-permutation = torch.tensor([2, 0, 1])
+permutation = torch.tensor([2, 1, 0])
 original = attention(x)
 rearranged = attention(x[permutation])
 print("无位置时等变：", torch.allclose(rearranged, original[permutation]))
@@ -171,19 +178,21 @@ p = torch.arange(3)
 score = apply_rope(q, p) @ apply_rope(k, p).T
 shifted = apply_rope(q, p+5) @ apply_rope(k, p+5).T
 print("整体平移后最大差异：", float((score-shifted).abs().max()))
-print("范数保持：", torch.allclose(q.norm(dim=-1), apply_rope(q, p).norm(dim=-1)))''')
+print("范数保持：", torch.allclose(q.norm(dim=-1), apply_rope(q, p).norm(dim=-1)))
+small_rope = rope_example()
+print("二维PPT算例：", round(small_rope["score"], 4), round(small_rope["shifted_score"], 4))''')
     md("""## 12. 接口整合：真实ID、多头Q/K、RoPE、两种mask
 
     打开`code/input_pipeline.py`，核对每步shape。此分支直接在Q/K使用RoPE，不叠加相加式绝对位置。
     参数是随机初始化；脚本不包含完整Block、语言模型训练或生成循环。""")
     code(function_source(root, "input_pipeline.py", "demo").replace("def demo():", "def input_pipeline():")
-         + '\n\npipeline_result = input_pipeline()')
+         + '\n\npipeline_result = input_pipeline()\nprint("四位置mask算例：", mask_example()["weights"])')
     md("""## 复习与作业
 
     解释：rank与最长前缀为何不同？重复token梯度为何累加？绑定输入输出权重后谁还会更新？
     RoPE与因果mask各控制什么？详见 [练习](exercises.md) 与 [讲义](student_handout.md)。""")
     # 同一索引驱动 PPT、对照表和 Notebook，避免实验编号与公式各自维护。
-    primary = {1: ["bpe_train"], 2: ["rank"], 3: ["hf_pipeline"], 4: ["byte"],
+    primary = {1: ["bpe_train"], 2: ["rank"], 3: ["hf_pipeline"], 4: ["artifact"],
                5: ["onehot"], 6: ["grad"], 7: ["chain"], 8: ["training"],
                9: ["permutation"], 10: ["frequencies"],
                11: ["rotation", "vector_rope"], 12: ["mask", "pipeline"]}
@@ -203,6 +212,8 @@ print("范数保持：", torch.allclose(q.norm(dim=-1), apply_rope(q, p).norm(di
                 cell.source += "\n\n$$\n" + formula + "\n$$"
             if link.get("symbols"):
                 cell.source += "\n\n" + link["symbols"] + "。"
+            if link.get("worked_function"):
+                cell.source += f"\n\n**页内数值算例**：[worked_examples.py:{link['worked_function']}](code/worked_examples.py)。"
             cell.source += "\n\n**运行后核对**：" + link["result"] + "。"
     cells[0].source += "\n\n备课和复习可查看 [知识、公式与代码对照](knowledge_code_map.md)。"
     notebook = nbf.v4.new_notebook(cells=cells)

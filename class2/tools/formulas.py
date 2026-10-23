@@ -80,6 +80,10 @@ def write_alignment(root, slides):
         target = "code/"+link["file"]
         text += [f"\n## PPT {number:02d}｜{link['question']}\n",
                  f"**定位**：{experiment_label(link)}；[{source_label(link)}]({target})。\n"]
+        if item.get("explanation"):
+            text += ["\n".join("- "+s for s in item["explanation"])+"\n"]
+        if link.get("worked_function"):
+            text += [f"**页内数值算例**：[worked_examples.py:{link['worked_function']}](code/worked_examples.py)。\n"]
         for formula in link.get("formulas", []):
             text += ["$$\n"+formula+"\n$$\n"]
         if link.get("symbols"):

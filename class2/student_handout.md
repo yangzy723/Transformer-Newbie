@@ -22,11 +22,25 @@ $$
 
 f_s 是文本 s 的出现次数。可读实现逐轮执行：从基础字符开始；统计相邻 pair；按固定并列规则选最高频 pair；合并非重叠出现；重新统计，直到达到合并预算或没有 pair。
 
-“我喜欢喝牛奶”×5、“你喜欢喝牛奶”×3、“我喜欢喝酒”×2，四轮合并频次为10、10、8、8。首轮并列，本代码按首次出现顺序选择，不把它当作所有实现的通用并列规则。
+“我喜欢喝奶茶”×5、“你喜欢喝奶茶”×3、“我喜欢喝咖啡”×2，四轮合并频次为10、10、8、8。首轮并列，本代码按首次出现顺序选择，不把它当作所有实现的通用并列规则。
 
 本代码每轮重扫当前语料，朴素训练上界约为 K×N，K为合并轮数，N为初始片段总量。它帮助读懂算法，不代表库实现的性能。BPE 学规则不是梯度下降。[BPE 原论文](https://aclanthology.org/P16-1162/)
 
-### 1.3 编码：rank 不能换成最长前缀
+### 1.3 编码：先执行固定规则，再看重叠候选
+
+奶茶语料学到四条规则：喜+欢、喜欢+喝、喜欢喝+奶、喜欢喝奶+茶。对“你喜欢喝奶茶”依次得到：
+
+```text
+你 / 喜 / 欢 / 喝 / 奶 / 茶
+你 / 喜欢 / 喝 / 奶 / 茶
+你 / 喜欢喝 / 奶 / 茶
+你 / 喜欢喝奶 / 茶
+你 / 喜欢喝奶茶
+```
+
+编码时不再统计语料频次。新组合“你喜欢喝咖啡”得到 `你 / 喜欢喝 / 咖 / 啡`，可复用已学片段。完整输出见 `code/worked_examples.py`。
+
+#### 重叠时，rank 不能换成最长前缀
 
 merges 列表给出合并优先级 rank。推理时，从当前相邻、可合并的 pair 中选最小 rank，合并后再检查。token ID 是词表地址，不等于 rank。
 
@@ -46,6 +60,8 @@ abc → ab(rank1)、bc(rank0)
 本课使用 Hugging Face Tokenizers 0.22.2：ByteLevel 预切分、256种基础字节、4个特殊符号、BPE训练器和ByteLevel解码器。预切分规定不能跨越的边界；不设置有损normalizer，`add_prefix_space=False`。分别训练320与384项词表。
 
 保存的JSON包含词表、merges、预切分和解码配置。加载后无需下载模型。接口参考 [官方 Quicktour](https://huggingface.co/docs/tokenizers/python/latest/quicktour.html) 与 [0.22.2 ByteLevel 示例](https://github.com/huggingface/tokenizers/blob/v0.22.2/bindings/python/examples/train_bytelevel_bpe.py)。
+
+以下词表规模对照供课后参考；课堂只用默认320项配置。
 
 | 本次实际编码 | V=320 | V=384 |
 | --- | --- | --- |
@@ -253,3 +269,7 @@ result[..., 1::2] = even * sin + odd * cos
 bigram有真实训练但没有Attention；输入整合有多头Q/K、RoPE与mask，但参数随机，未实现完整Block或生成循环。两者不能拼称为训练好的Transformer。
 
 运行见 [README](README.md)，反例与实验答案见 [练习](exercises.md)。
+
+## 5. 对照页面算例
+
+运行 `python class2/code/worked_examples.py` 可复现页面中的奶茶语料、算术小表、非全1上游梯度、三类交叉熵、二维RoPE和四位置mask。小算例用于逐项计算，与真实320项词表的ID分开。结果保存在 [worked_examples.json](assets/worked_examples.json)。

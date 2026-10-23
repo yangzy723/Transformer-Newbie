@@ -14,7 +14,7 @@ def attention(x):
 def demo():
     torch.manual_seed(7)
     x = torch.randn(3, 4, dtype=torch.float64)
-    permutation = torch.tensor([2, 0, 1])
+    permutation = torch.tensor([2, 1, 0])
     original = attention(x)
     rearranged = attention(x[permutation])
     print("无位置：Attn(PX) == P Attn(X)：", torch.allclose(rearranged, original[permutation]))

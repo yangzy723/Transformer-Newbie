@@ -14,18 +14,13 @@ LINKS = {
         "formulas": [r"(a,b)^*=\underset{(a,b)\in\mathcal{C}}{\arg\min}\;\operatorname{rank}(a,b)"],
         "symbols": "C：当前相邻、且在 merges 中的候选 pair",
         "code": ["rank, pair = min(candidates, key=lambda item: item[0])", "parts = merge_pair(parts, pair)"],
-        "result": "abc → a / bc；不是最长前缀 ab / c",
+        "result": "你喜欢喝奶茶 → 你 / 喜欢喝奶茶；重叠反例 abc → a / bc",
         "question": "规则学好以后，编码时先执行哪条？",
     },
     "hf_pipeline": {
         "experiment": 3, "file": "train_tokenizer.py", "function": "train",
         "result": "从本地语料训练，完整配置保存在 JSON 中",
         "question": "字符级算法怎样落到真实的字节级分词器？",
-    },
-    "byte": {
-        "experiment": 4, "file": "tokenization.py", "function": "demo",
-        "result": "Hello world!：320 项词表得 9 项，384 项得 5 项",
-        "question": "为什么空格、标点和字节会影响切分？",
     },
     "artifact": {
         "experiment": 4, "file": "runtime.py", "function": "load_tokenizer",
@@ -149,3 +144,10 @@ def source_label(link):
 
 def experiment_label(link):
     return f"Notebook 实验 {link['experiment']}" if link["experiment"] else "课后扩展验证"
+
+
+for kind,function in {"onehot":"lookup_example","grad":"gradient_example",
+                      "chain":"cross_entropy_example","absolute":"rope_example",
+                      "frequencies":"rope_example","rotation":"rope_example",
+                      "vector_rope":"rope_example","mask":"mask_example"}.items():
+    LINKS[kind]["worked_function"]=function

@@ -1,6 +1,8 @@
 """可读的字符级 BPE：加权训练与按 rank 编码。不是字节级库的替代品。"""
 from collections import Counter
 
+BPE_CORPUS = {"我喜欢喝奶茶": 5, "你喜欢喝奶茶": 3, "我喜欢喝咖啡": 2}
+
 
 def merge_pair(parts, pair):
     result, i = [], 0
@@ -50,10 +52,11 @@ def encode_bpe(text, merges):
 
 
 def demo():
-    corpus = {"我喜欢喝牛奶": 5, "你喜欢喝牛奶": 3, "我喜欢喝酒": 2}
+    corpus = BPE_CORPUS
     merges, history = train_bpe(corpus, 4)
     print("训练记录：", history)
-    print("固定规则编码：", encode_bpe("我喜欢喝酒", merges))
+    print("固定规则编码：", encode_bpe("你喜欢喝奶茶", merges))
+    print("新组合复用规则：", encode_bpe("你喜欢喝咖啡", merges)[0])
     conflict_merges, _ = train_bpe({"bc": 6, "ab": 5, "abc": 1}, 2)
     print("重叠 pair 的规则：", conflict_merges)
     print("abc 按 rank 编码：", encode_bpe("abc", conflict_merges)[0])

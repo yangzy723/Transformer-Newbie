@@ -27,7 +27,7 @@ python3 class1/code/lesson.py
 
 从 **[class2 教学入口](class2/README.md)** 开始：
 
-- [21 页授课 PPT](class2/class2_tokens_embeddings_positions.pptx)
+- [20 页授课 PPT](class2/class2_tokens_embeddings_positions.pptx)
 - [第二课教案](class2/teacher_guide.md)
 - [课堂 Notebook](class2/demo.ipynb)
 - [学生讲义](class2/student_handout.md)
