@@ -4,27 +4,34 @@
 
 | 页 | 时间 | 知识 | Notebook实验 | 源码 |
 |---|---|---|---|---|
-| 1 | 0–3 | 输入一句话，模型怎样继续写？ | 图示/检查 | [code/review.py](code/review.py) |
-| 2 | 3–5 | 从文字到下一个 token | 图示/检查 | [code/review.py](code/review.py) |
-| 3 | 5–9 | 三个向量，怎样合成一个向量？ | 实验01 | [code/review.py](code/review.py) |
-| 4 | 9–12 | 两次 Softmax，用在两个地方 | 实验01 | [code/review.py](code/review.py) |
-| 5 | 12–15 | BPE 训练：合并之后重新计数 | 实验02 | [code/review.py](code/review.py) |
-| 6 | 15–18 | BPE 编码：按已有规则继续合并 | 实验02 | [code/review.py](code/review.py) |
-| 7 | 18–21 | ID 是行号，Embedding 是可训练的表 | 实验02 | [code/review.py](code/review.py) |
-| 8 | 21–25 | 内容相同，位置不同 | 实验03 | [code/review.py](code/review.py) |
-| 9 | 25–28 | Q、K、V 分别负责什么？ | 实验04 | [code/attention.py](code/attention.py) |
-| 10 | 28–32 | 从 X 算出 Q、K、V | 实验04 | [code/attention.py](code/attention.py) |
-| 11 | 32–35 | “喝”与每个位置分别算一个分数 | 实验05 | [code/attention.py](code/attention.py) |
-| 12 | 35–38 | 每个位置，都有一行匹配分数 | 实验05 | [code/attention.py](code/attention.py) |
-| 13 | 38–41 | 为什么要缩放点积分数？ | 实验05 | [code/attention.py](code/attention.py) |
-| 14 | 41–44 | 算“喜欢”时，不能提前看到“喝” | 实验05 | [code/attention.py](code/attention.py) |
-| 15 | 44–47 | 用权重把 V 合成新的向量 | 实验05 | [code/attention.py](code/attention.py) |
-| 16 | 47–49 | “我”的 V 变了，哪些结果会变？ | 实验06 | [code/experiments.py](code/experiments.py) |
-| 17 | 49–51 | “我”的 K 变了，读取比例怎样变？ | 实验07 | [code/experiments.py](code/experiments.py) |
-| 18 | 51–53 | 改动“喝”，前两个位置会受影响吗？ | 实验08 | [code/experiments.py](code/experiments.py) |
-| 19 | 53–55 | 将刚才的计算写成程序 | 实验05 | [code/attention.py](code/attention.py) |
-| 20 | 55–57 | 多个头，分别计算几组匹配 | 图示/检查 | [code/attention.py](code/attention.py) |
-| 21 | 57–60 | 这张注意力矩阵说明了什么？ | 图示/检查 | [code/attention.py](code/attention.py) |
+| 1 | 0–2 | 输入一句话，模型怎样继续写？ | 图示/检查 | [code/review.py](code/review.py) |
+| 2 | 2–4 | 从文字到下一个 token | 图示/检查 | [code/review.py](code/review.py) |
+| 3 | 4–7 | BPE 训练：合并之后重新计数 | 实验01 | [code/review.py](code/review.py) |
+| 4 | 7–10 | BPE 编码：按已有规则继续合并 | 实验01 | [code/review.py](code/review.py) |
+| 5 | 10–13 | ID 是行号，Embedding 是可训练的表 | 实验01 | [code/review.py](code/review.py) |
+| 6 | 13–17 | 内容相同，位置不同 | 实验02 | [code/review.py](code/review.py) |
+| 7 | 17–19 | 先只更新“喝”这个位置 | 图示/检查 | [code/review.py](code/review.py) |
+| 8 | 19–21 | 三个位置各提供什么，分别读多少？ | 实验03 | [code/review.py](code/review.py) |
+| 9 | 21–24 | 先乘读取比例，再把同一列相加 | 实验03 | [code/review.py](code/review.py) |
+| 10 | 24–25 | 每个位置各算一次，整句仍有三个向量 | 图示/检查 | [code/review.py](code/review.py) |
+| 11 | 25–27 | 查营业时间：问题、索引、正文各管什么？ | 图示/检查 | [code/attention.py](code/attention.py) |
+| 12 | 27–28 | 换一个问题，同一份资料的读取比例也会变 | 图示/检查 | [code/attention.py](code/attention.py) |
+| 13 | 28–30 | 回到句子：每个位置都有 Q、K、V | 实验04 | [code/attention.py](code/attention.py) |
+| 14 | 30–31 | 只拿“喝”的 Q，把一次读取走完整 | 实验04 | [code/attention.py](code/attention.py) |
+| 15 | 31–34 | 从 X 算出 Q、K、V | 实验04 | [code/attention.py](code/attention.py) |
+| 16 | 34–36 | “喝”与每个位置分别算一个分数 | 实验05 | [code/attention.py](code/attention.py) |
+| 17 | 36–38 | 每个位置，都有一行匹配分数 | 实验05 | [code/attention.py](code/attention.py) |
+| 18 | 38–40 | 为什么要缩放点积分数？ | 实验05 | [code/attention.py](code/attention.py) |
+| 19 | 40–42 | 算“喜欢”时，不能提前看到“喝” | 实验05 | [code/attention.py](code/attention.py) |
+| 20 | 42–44 | 一行分数，怎样变成一行读取比例？ | 实验05 | [code/attention.py](code/attention.py) |
+| 21 | 44–46 | 用权重把 V 合成新的向量 | 实验05 | [code/attention.py](code/attention.py) |
+| 22 | 46–48 | 两次 Softmax，用在两个地方 | 实验03 | [code/review.py](code/review.py) |
+| 23 | 48–50 | “我”的 V 变了，哪些结果会变？ | 实验06 | [code/experiments.py](code/experiments.py) |
+| 24 | 50–52 | “我”的 K 变了，读取比例怎样变？ | 实验07 | [code/experiments.py](code/experiments.py) |
+| 25 | 52–54 | 改动“喝”，前两个位置会受影响吗？ | 实验08 | [code/experiments.py](code/experiments.py) |
+| 26 | 54–55 | 将刚才的计算写成程序 | 实验05 | [code/attention.py](code/attention.py) |
+| 27 | 55–56 | 多个头，分别计算几组匹配 | 图示/检查 | [code/attention.py](code/attention.py) |
+| 28 | 56–60 | 这张注意力矩阵说明了什么？ | 图示/检查 | [code/attention.py](code/attention.py) |
 
 ## 核心计算逐项对应
 
@@ -74,6 +81,18 @@ $$
 ```python
 future = torch.ones(3, 3, dtype=torch.bool).triu(1)
 masked = scores.masked_fill(future, -torch.inf)
+```
+
+### 一行分数，怎样变成一行读取比例？
+
+除以总和约8.227，得到[0.5,0.5,0]。
+
+$$
+a_j=\frac{e^{s_j}}{\sum_{\ell}e^{s_{\ell}}}
+$$
+
+```python
+weights = masked.softmax(dim=-1)
 ```
 
 ### 用权重把 V 合成新的向量
@@ -129,7 +148,7 @@ q2, k2, v2 = project(changed_x)
 矩阵行是query位置，列是key位置，Softmax沿最后一维执行。
 
 数学使用X@W。nn.Linear.weight存为[out,in]，计算用X@weight.T+bias。
-第20页是独立的多头结构示意：B=1,T=3,D=4,H=2,d_h=2。
+多头页是独立的结构示意：B=1,T=3,D=4,H=2,d_h=2。
 
 RoPE在投影Q/K之后、点积之前。实际接口复用第二课positions.apply_rope；V不旋转，
 干预前后位置保持一致。主手算先分离位置旋转，以便逐项核算矩阵。

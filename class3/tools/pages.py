@@ -1,5 +1,6 @@
 """第三课：同一句话的复习、计算与修改结果。"""
 from presentation import *
+from intro_pages import draw_intro
 
 
 def architecture(c):
@@ -37,6 +38,8 @@ def architecture(c):
 
 def draw(c, item, r):
     kind=item['kind']; b=r['base']; review=r['review']
+    if draw_intro(c,kind,r):
+        return
     if kind=='architecture':
         architecture(c)
     elif kind=='restart':
@@ -51,14 +54,6 @@ def draw(c, item, r):
         c.text(7.90, 5.02, 4.61, .40, '“喝”之前的信息怎样参与预测？', 21, BLUE, bold=True)
         c.line(.80, 5.98, 12.50, 5.98, LINE)
         c.text(.80, 6.26, 11.70, .44, '文字 → token ID → 内容与位置 → Attention → 词表分数', 23, INK)
-    elif kind=='old_attention':
-        old=review['first_lesson']
-        label(c, .80, 2.20, '第一课：每个位置提供的 V')
-        table(c, .80, 2.91, 4.70, old['values'], labels=b['tokens'], columns=['分量 0','分量 1'], cell_h=.66, size=25)
-        label(c, 6.20, 2.20, '“喝”分给三个位置的读取比例', w=6)
-        bars(c, 6.20, 2.91, 6.17, b['tokens'], old['weights'], row_h=.71)
-        equation(c, r'\mathbf z\approx0.2483\,[1,0]+0.2483\,[0,1]+0.5035\,[1,1]', .83, 5.40, 11.60, .48, size=27)
-        c.text(.83, 6.18, 11.55, .44, '两个分量分别加权相加，得到新向量 ≈ '+vec(old['context']), 23, BLUE, bold=True)
     elif kind=='two_softmax':
         old=review['first_lesson']
         for x, name, objects, scores, values, color in (
@@ -128,21 +123,9 @@ def draw(c, item, r):
         c.text(9.96, 5.28, 2.45, .38, '位置 3、5', 21, INK, center=True)
         c.text(6.75, 2.91, 5.85, .34, '初始都向右，每格转 30°；蓝 Q、绿 K。', 18, MUTED, center=True)
         c.text(6.75, 6.03, 5.85, .75, '两个箭头一起多转 60°，夹角仍是 60°。\n点积反映相对位置；V 不旋转。', 21, TEAL)
-    elif kind=='qkv_roles':
-        label(c, .80, 2.22, '同一份 X，经过三组不同的可训练参数', w=11.7)
-        equation(c, r'\mathbf Q=\mathbf X\mathbf W_Q,\quad\mathbf K=\mathbf X\mathbf W_K,\quad\mathbf V=\mathbf X\mathbf W_V', .80, 2.93, 11.70, .60, size=32)
-        for x, name, role, example, color in (
-            (.80,'Q · Query','查询方的匹配特征','拿“喝”的 Q 去比较\n每个位置的 K。',BLUE),
-            (4.96,'K · Key','被查询方的匹配特征','Q 与 K 做点积，\n得到匹配分数。',TEAL),
-            (9.12,'V · Value','实际用于汇总的内容','按匹配得到的权重，\n对 V 加权相加。',ORANGE)):
-            c.text(x, 3.97, 3.38, .44, name, 27, color, bold=True)
-            c.text(x, 4.62, 3.38, .40, role, 20, INK)
-            c.text(x, 5.25, 3.38, .83, example, 21, INK)
-        for xx in (4.48,8.64): c.line(xx,4.00,xx,6.12,LINE)
-        c.text(.80, 6.52, 11.70, .36, 'Q/K 决定“读多少”，V 决定“读到什么”。后面分别改一次，观察结果。', 20, MUTED)
     elif kind=='projections':
         c.text(.80, 2.23, 11.70, .44, 'X 的三行：我 [1,0]    喜欢 [0,1]    喝 [1,1]', 25, INK, bold=True)
-        c.text(.80, 2.83, 11.70, .34, '本节算例：T=3，每个向量两维；三张 W 都是 2×2 参数矩阵。', 18, MUTED)
+        c.text(.80, 2.83, 11.70, .34, '固定输入 X，三张 2×2 的 W 在所有位置间共享；每行向量两维。', 18, MUTED)
         for i, (tag,key,color) in enumerate((('Q','q',BLUE),('K','k',TEAL),('V','v',ORANGE))):
             x=.80+i*4.06
             equation(c,rf'\mathbf W_{{{tag}}}',x,3.35,3.45,.40,size=23)
@@ -190,6 +173,7 @@ def draw(c, item, r):
         c.text(6.57,6.54,5.90,.31,'灰色：不缩放     蓝色：除以 √2',18,MUTED)
     elif kind=='mask':
         label(c,.80,2.23,'缩放后的分数：未来设为 −∞',w=5.4,color=BLUE,size=21)
+        c.text(.80,2.68,5.08,.30,'“喜欢”的原始分数：[2,2,4]',18,MUTED)
         rows=[['-∞' if b['forbidden'][i][j] else b['scores'][i][j] for j in range(3)] for i in range(3)]
         table(c,.80,3.06,5.08,rows,labels=b['tokens'],columns=b['tokens'],cell_h=.65,size=24,highlight_row=1)
         c.text(6.10,3.92,1.14,.45,'→',30,BLUE,center=True)

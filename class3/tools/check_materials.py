@@ -14,9 +14,8 @@ ROOT=Path(__file__).resolve().parents[1]
 
 def main():
     slides=json.loads((ROOT/'slides.json').read_text())
-    assert len(slides)==21
     assert sum(s['minutes'] for s in slides)==60
-    assert sum(s['minutes'] for s in slides[:8])==25
+    assert sum(s['minutes'] for s in slides if s['section']=='复习')==25
     ppt=Presentation(ROOT/'class3_attention.pptx')
     assert len(ppt.slides)==len(slides)
     for page in ppt.slides:
@@ -51,7 +50,7 @@ def main():
             if entry['mono']:continue
             missing.update(ch for ch in entry['text'] if not ch.isspace() and ord(ch) not in available)
     assert not missing,missing
-    print('教材一致性：21页/60分钟/25分钟复习、讲者备注、固定文本框、无主题阴影、')
+    print(f'教材一致性：{len(slides)}页/60分钟/25分钟复习、讲者备注、固定文本框、无主题阴影、')
     print('            10个已执行代码单元、本地链接与字体字符覆盖通过。')
 
 

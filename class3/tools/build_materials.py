@@ -16,10 +16,11 @@ sys.path.insert(0,str(ROOT/'code'))
 from experiments import build_report
 
 FORMULAS={
-'old_attention':r'\mathbf z=\sum_j a_j\mathbf v_j',
+'mix_steps':r'\mathbf z=\sum_j a_j\mathbf v_j',
 'embedding':r'\mathbf X=\mathbf E[I]',
 'positions':r'\theta_{p,i}=p\omega_i',
-'qkv_roles':r'\mathbf Q=\mathbf X\mathbf W_Q,\quad\mathbf K=\mathbf X\mathbf W_K,\quad\mathbf V=\mathbf X\mathbf W_V',
+'token_roles':r'\mathbf q_i=\mathbf x_i\mathbf W_Q,\quad\mathbf k_i=\mathbf x_i\mathbf W_K,\quad\mathbf v_i=\mathbf x_i\mathbf W_V',
+'softmax':r'a_j=\frac{e^{s_j}}{\sum_{\ell}e^{s_{\ell}}}',
 'one_query':r's_{2,j}=\mathbf q_2\cdot\mathbf k_j',
 'score_matrix':r'\mathbf S_{\rm raw}=\mathbf Q\mathbf K^\mathsf{T}',
 'scale':r'\mathbf S=\frac{\mathbf Q\mathbf K^\mathsf{T}}{\sqrt{d_k}}',
@@ -29,7 +30,8 @@ FORMULAS={
 'multihead':r'\operatorname{MultiHead}(\mathbf X)=\operatorname{Concat}(\mathbf Z^{(1)},\ldots,\mathbf Z^{(H)})\mathbf W_O',
 }
 CODE={
-'qkv_roles':['q, k, v = project(x)'],
+'mix_steps':['weighted = weights_review[:, None] * values','context = weighted.sum(dim=0)'],
+'softmax':['weights = masked.softmax(dim=-1)'],
 'projections':['q = x @ w_q','k = x @ w_k','v = x @ w_v'],
 'one_query':['raw_row = q[-1] @ k.T'],
 'score_matrix':['raw_scores = q @ k.T'],
@@ -49,7 +51,7 @@ CODE={
 
 def write_texts(items):
     slides=['# 第三课：重新走进 Transformer，理解 Attention\n']
-    guide=['# 第三课教案\n','60分钟，21页。前25分钟复习，后半节完整计算单头因果Attention。\n',
+    guide=['# 第三课教案\n',f'60分钟，{len(items)}页。前25分钟复习，后半节解释Q/K/V并完整计算单头因果Attention。\n',
            '课前打开PPT与Notebook，运行 §python class3/tools/check_experiments.py§。数值统一来自 §assets/lesson_report.json§。\n']
     mapping=['# 第三课知识与代码对照\n',
              '代码使用小写变量，公式使用大写矩阵；位置从0开始，第三行是位置2。\n',
@@ -70,7 +72,7 @@ def write_texts(items):
         if item['kind'] in CODE:
             slides += ['\n§§§python\n'+'\n'.join(CODE[item['kind']])+'\n§§§']
     mapping += ['\n## 核心计算逐项对应\n']
-    for kind in ('projections','score_matrix','scale','mask','mix','change_v','change_k','causality'):
+    for kind in ('projections','score_matrix','scale','mask','softmax','mix','change_v','change_k','causality'):
         it=next(i for i in items if i['kind']==kind)
         mapping += ['\n### '+it['title']+'\n',it['takeaway']]
         if kind in FORMULAS:mapping += ['\n$$\n'+FORMULAS[kind]+'\n$$']
@@ -82,7 +84,7 @@ def write_texts(items):
 矩阵行是query位置，列是key位置，Softmax沿最后一维执行。
 
 数学使用X@W。nn.Linear.weight存为[out,in]，计算用X@weight.T+bias。
-第20页是独立的多头结构示意：B=1,T=3,D=4,H=2,d_h=2。
+多头页是独立的结构示意：B=1,T=3,D=4,H=2,d_h=2。
 
 RoPE在投影Q/K之后、点积之前。实际接口复用第二课positions.apply_rope；V不旋转，
 干预前后位置保持一致。主手算先分离位置旋转，以便逐项核算矩阵。
@@ -114,7 +116,7 @@ def build():
             f"第{n}页 {start}–{end}分钟\n{item['title']}\n"+
             '\n'.join(item['explanation'])+'\n讲解与问题：'+item['notes']+'\n课堂操作：'+item['operation']+
             f"\n代码：{item['source']}；Notebook实验：{item.get('experiment')}"+
-            '\n数值来源：assets/lesson_report.json。完整精度计算，页面取近似值。')
+            ('\n数值说明：本页生活类比的读取比例为示意。' if item.get('illustration') else '\n主例数值来源：assets/lesson_report.json。完整精度计算，页面取近似值。'))
         canvases.append(c);metrics.append(dict(page=n,title=item['title'],text=c.text_metrics,ink=c.ink_boxes))
     assert minute==60
     validation=validate_layout(canvases)
@@ -134,7 +136,11 @@ def build():
         thumb=c.image.copy();thumb.thumbnail((628,354))
         sheet.paste(thumb,((i%3)*640+6,(i//3)*374+6))
     sheet.save(ROOT/'assets/slides_preview.jpg',quality=93)
-    for name,i in (('architecture',1),('scores',11),('causality',17),('projection',9),('positions',7)):
+    previews={'architecture':'architecture','scores':'score_matrix','causality':'causality',
+              'projection':'projections','positions':'positions','reading':'reading_focus',
+              'weighted_sum':'mix_steps','qkv':'retrieval_roles','qkv_flow':'qkv_one_reader'}
+    for name,kind in previews.items():
+        i=next(i for i,item in enumerate(items) if item['kind']==kind)
         canvases[i].image.save(ROOT/f'assets/preview_{name}.png')
     print(f"课件完成：{len(items)}页，{minute}分钟；文字/公式边界检查通过。")
 
