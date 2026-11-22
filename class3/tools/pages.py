@@ -1,267 +1,292 @@
-"""21页课堂内容：实际矩阵、可编辑图表、计算展开与控制变量实验。"""
+"""第三课：同一句话的复习、计算与修改结果。"""
 from presentation import *
 
 
-def draw(c,item,r):
+def architecture(c):
+    label(c, .78, 2.17, '一次预测', color=BLUE)
+    steps=['文本：我喜欢喝', 'Tokenizer → ID 序列 [T]',
+           'Embedding → X [B,T,D]', 'Blocks × N → H [B,T,D]',
+           '最终 Norm → LM Head → 词表分数', 'Softmax → 概率 → 采样下一个 ID']
+    for i, name in enumerate(steps):
+        y=2.74+i*.65
+        node(c,.80,y,5.05,.45,name,fill=PALE if i==3 else 'F3F5F7',size=19,
+             color=BLUE if i==3 else INK)
+        if i<5: c.line(3.325,y+.47,3.325,y+.63,LINE,arrow=True)
+    c.text(.80,6.65,5.05,.30,'最后位置负责预测；新 ID 接回输入。',16,MUTED)
+    c.line(6.00, 2.18, 6.00, 6.65, LINE)
+    label(c, 6.43, 2.17, '展开一个 Block（Pre-Norm）', w=5.8, color=BLUE)
+    x=8.10; w=3.72
+    c.text(x, 2.62, w, .31, '输入 x：向量序列 [B,T,D]', 18, INK, center=True)
+    for y, name, fill in ((3.10, 'Norm', 'F0F3F6'), (3.74, 'Causal Self-Attention', PALE),
+                          (4.39, '+ x', 'F0F3F6'), (5.03, 'Norm → FFN', 'F0F3F6'),
+                          (5.68, '+ h', 'F0F3F6')):
+        node(c, x, y, w, .43, name, fill=fill, size=18)
+    for y1,y2 in ((2.95,3.08),(3.55,3.72),(4.19,4.37),(4.84,5.01),(5.49,5.66),(6.13,6.38)):
+        c.line(x+w/2, y1, x+w/2, y2, MUTED, arrow=True)
+    c.line(7.74, 2.91, 7.74, 4.60, LINE)
+    c.line(7.74, 2.91, 8.10, 2.91, LINE)
+    c.line(7.74, 4.60, 8.08, 4.60, LINE, arrow=True)
+    c.line(12.12, 4.86, 12.12, 5.89, LINE)
+    c.line(11.82, 4.86, 12.12, 4.86, LINE)
+    c.line(12.12, 5.89, 11.84, 5.89, LINE, arrow=True)
+    c.text(6.42, 3.76, 1.15, .70, 'Q/K\n加 RoPE', 16, TEAL)
+    c.line(7.52, 4.00, 8.08, 4.00, TEAL, arrow=True)
+    c.text(11.96, 4.57, .55, .27, 'h', 16, MUTED)
+    c.text(7.83, 6.46, 4.25, .32, '输出仍为向量序列 [B,T,D]', 18, BLUE, center=True)
+
+
+def draw(c, item, r):
     kind=item['kind']; b=r['base']; review=r['review']
     if kind=='architecture':
-        architecture_review(c)
+        architecture(c)
     elif kind=='restart':
-        panel(c,.60,2.08,5.85,3.90,'先回到最熟悉的补词任务')
-        c.text(.88,2.75,5.20,.65,'我 喜欢 喝 ____',32,BLUE,bold=True)
-        prose(c,.88,3.64,5.25,[
-            '你会填“牛奶”“茶”，还是别的片段？',
-            '模型根据已有内容，为词表中的候选计算分数，再选择下一个 token。',
-            '今天追踪：输入的一行向量，怎样吸收前文信息？'],20,gap=.20,bottom=5.78)
-        for i,(label,body) in enumerate((
-            ('第一课：走完一次预测','Q/K 匹配 → 加权混合 V → 候选概率'),
-            ('第二课：补全输入端','BPE 分词 → Embedding → 位置信息'),
-            ('第三课：放大 Attention','可训练投影 → 匹配矩阵 → 上下文向量'))):
-            y=2.08+i*1.35
-            panel(c,6.65,y,6.05,1.19,label)
-            c.text(6.90,y+.58,5.55,.46,body,19,INK)
-        c.text(.86,6.15,11.7,.31,'课堂节奏：25 分钟复习 → 30 分钟深入 Attention → 5 分钟验收与衔接',18,MUTED)
+        old=review['first_lesson']
+        label(c, .80, 2.26, '已知输入')
+        c.text(.80, 2.91, 6.55, .78, '我  喜欢  喝', 43, INK, bold=True)
+        c.line(3.5354, 3.74, 3.5354, 4.16, BLUE, arrow=True)
+        c.text(.80, 4.43, 6.40, .94, '用“喝”这个位置的最终向量，\n预测接下来可能出现的 token。', 24, INK)
+        c.line(7.40, 2.26, 7.40, 5.51, LINE)
+        label(c, 7.90, 2.26, '第一课的两候选算例', w=4.5)
+        bars(c, 7.90, 3.12, 4.62, old['candidate_labels'], old['lm_probabilities'], row_h=.90)
+        c.text(7.90, 5.02, 4.61, .40, '“喝”之前的信息怎样参与预测？', 21, BLUE, bold=True)
+        c.line(.80, 5.98, 12.50, 5.98, LINE)
+        c.text(.80, 6.26, 11.70, .44, '文字 → token ID → 内容与位置 → Attention → 词表分数', 23, INK)
     elif kind=='old_attention':
         old=review['first_lesson']
-        panel(c,.60,2.08,5.85,3.25,'第一课原例：三个位置提供什么 V')
-        table(c,.88,2.77,5.20,old['values'],labels=['我','喜欢','喝'],
-              columns=['分量 0','分量 1'],cell_h=.53,highlight_row=2)
-        c.text(.89,5.00,5.1,.31,'三个 token，每个向量两个分量。',18,MUTED)
-        panel(c,6.65,2.08,6.05,3.25,'“喝”这一行：按比例汇总')
-        c.text(6.91,2.76,5.52,.37,'权重 ≈ '+vec(old['weights']),22,BLUE,bold=True)
-        c.text(6.91,3.36,5.52,.36,'第 0 分量：a₀×1 + a₁×0 + a₂×1',20,INK)
-        c.text(6.91,3.88,5.52,.36,'第 1 分量：a₀×0 + a₁×1 + a₂×1',20,INK)
-        c.text(6.91,4.56,5.52,.41,'结果 ≈ '+vec(old['context']),25,GREEN,bold=True)
-        code(c,['context = weights @ values'])
+        label(c, .80, 2.20, '第一课：每个位置提供的 V')
+        table(c, .80, 2.91, 4.70, old['values'], labels=b['tokens'], columns=['分量 0','分量 1'], cell_h=.66, size=25)
+        label(c, 6.20, 2.20, '“喝”分给三个位置的读取比例', w=6)
+        bars(c, 6.20, 2.91, 6.17, b['tokens'], old['weights'], row_h=.71)
+        equation(c, r'\mathbf z\approx0.2483\,[1,0]+0.2483\,[0,1]+0.5035\,[1,1]', .83, 5.40, 11.60, .48, size=27)
+        c.text(.83, 6.18, 11.55, .44, '两个分量分别加权相加，得到新向量 ≈ '+vec(old['context']), 23, BLUE, bold=True)
     elif kind=='two_softmax':
         old=review['first_lesson']
-        for x,title,labels,scores,weights,color in (
-            (.60,'Attention：给输入位置分配读取比例',['我','喜欢','喝'],old['scores'],old['weights'],BLUE),
-            (6.65,'LM Head：给候选 token 分配预测概率',old['candidate_labels'],old['lm_logits'],old['lm_probabilities'],TEAL)):
-            panel(c,x,2.08,5.85 if x<1 else 6.05,3.25,title,color)
-            c.text(x+.25,2.73,5.3,.34,'对象：'+' / '.join(labels),21,color,bold=True)
-            c.text(x+.25,3.28,5.3,.35,'分数 ≈ '+vec(scores),21,INK)
-            c.text(x+.25,3.86,5.3,.35,'Softmax ≈ '+vec(weights),21,color)
-            c.text(x+.25,4.55,5.3,.50,'用于混合 V，输出向量。' if x<1 else '用于选择下一 token。',22,INK)
-        code(c,['weights = scores.softmax(dim=-1)','probabilities = logits.softmax(dim=-1)'])
+        for x, name, objects, scores, values, color in (
+            (.80, 'Attention 内部', b['tokens'], old['scores'], old['weights'], BLUE),
+            (7.05, 'LM Head 之后', old['candidate_labels'], old['lm_logits'], old['lm_probabilities'], TEAL)):
+            label(c, x, 2.25, name, w=5.3, color=color, size=22)
+            c.text(x, 2.97, 5.15, .38, '分数 ≈ '+vec(scores), 22, INK)
+            bars(c, x, 3.65, 5.15, objects, values, color=color, row_h=.65)
+            c.text(x, 5.96, 5.15, .78,
+                   '在输入位置间分配权重，\n随后加权汇总 V。' if x<1 else '在词表候选间分配概率，\n随后选择下一个 token。', 22, color)
+        c.line(6.40, 2.26, 6.40, 6.68, LINE)
     elif kind=='bpe_train':
         d=review['bpe']
-        panel(c,.60,2.08,5.85,3.25,'① 加权语料：每个出现位置都要计数')
+        label(c, .80, 2.23, '语料及其出现次数')
         for i,(text,n) in enumerate(d['corpus'].items()):
-            c.text(.88,2.74+i*.48,5.15,.38,f'{text}  × {n}',23,INK)
-        c.text(.88,4.42,5.15,.38,'“喜＋欢”：5 + 3 + 2 = 10 次',21,BLUE,bold=True)
-        panel(c,6.65,2.08,6.05,3.25,'② 合并后，相邻片段已经变化')
-        c.text(6.91,2.74,5.53,.35,'原来：我 / 喜 / 欢 / 喝 / 奶 / 茶',21,MUTED)
-        c.line(9.5,3.22,9.5,3.50,arrow=True)
-        c.text(6.91,3.68,5.53,.36,'现在：我 / 喜欢 / 喝 / 奶 / 茶',21,BLUE,bold=True)
-        prose(c,6.91,4.33,5.48,[
-            '新增“我＋喜欢”“喜欢＋喝”。下一轮重新统计当前相邻对。'],19,bottom=5.19)
-        code(c,['counts[pair] += corpus[text]','pair = max(counts, key=counts.get)'])
+            c.text(.80, 2.96+i*.53, 5.23, .43, f'{text}  × {n}', 25, INK)
+        c.text(.80, 4.84, 5.15, .42, '“喜 + 欢”：5 + 3 + 2 = 10', 23, BLUE, bold=True)
+        c.line(6.15, 2.25, 6.15, 5.36, LINE)
+        label(c, 6.65, 2.23, '一次合并，改变了相邻关系', w=5.9)
+        c.text(6.65, 3.00, 5.90, .43, '我 / 喜 / 欢 / 喝 / 奶 / 茶', 23, MUTED)
+        c.line(9.52, 3.64, 9.52, 3.98, BLUE, arrow=True)
+        c.text(6.65, 4.23, 5.90, .43, '我 / 喜欢 / 喝 / 奶 / 茶', 23, BLUE, bold=True)
+        c.text(6.65, 4.93, 5.90, .78, '旧的“欢 + 喝”消失；\n新的“喜欢 + 喝”出现，下一轮要重新数。', 21, INK)
+        code(c, ['counts[pair] += corpus[text]', 'pair = max(counts, key=counts.get)'], y=6.08)
+        c.text(7.05, 6.08, 5.44, .75, '上行：累计当前相邻对的出现次数\n下行：选择累计次数最多的一对', 17, MUTED)
     elif kind=='bpe_encode':
         d=review['bpe']
-        panel(c,.60,2.08,4.22,3.25,'冻结的规则：rank 小的先用')
+        label(c, .80, 2.23, '已学好的四条合并规则', w=4.3)
         for i,pair in enumerate(d['merges']):
-            c.text(.85,2.76+i*.48,3.74,.38,f'{i}：'+ ' + '.join(pair),20,INK)
-        panel(c,5.02,2.08,7.68,3.25,'每次合并后，检查新出现的相邻候选')
+            c.text(.80, 3.03+i*.64, 4.40, .43, f'{i}   '+ ' + '.join(pair), 23, INK)
+        c.line(5.50, 2.25, 5.50, 6.70, LINE)
+        label(c, 5.99, 2.23, '每次选当前可用的最小 rank', w=6.5)
         for i,row in enumerate(d['encode_trace']):
-            prefix='起点' if row['rank'] is None else str(row['rank'])+' →'
-            c.text(5.26,2.71+i*.43,7.13,.37,prefix+'  '+' / '.join(row['tokens']),
-                   21,BLUE if i==4 else INK,bold=i==4)
-        c.rect(.60,5.58,12.10,.66,PALE)
-        c.text(.85,5.74,11.58,.37,'最终：你 / 喜欢喝奶茶，共两个 token。“喜欢”只是中间结果。',22,BLUE,bold=True)
+            prefix='起点' if row['rank'] is None else 'rank '+str(row['rank'])
+            yy=3.01+i*.57
+            c.text(5.99, yy+.02, 1.03, .34, prefix, 16, MUTED)
+            c.text(7.18, yy, 5.38, .43, ' / '.join(row['tokens']), 23,
+                   BLUE if i==4 else INK, bold=i==4)
+        c.text(.80, 6.29, 4.35, .42, 'rank 是规则的执行顺序。', 20, MUTED)
+        c.text(5.99, 6.29, 6.56, .42, '最终只有两个 token：你 / 喜欢喝奶茶', 22, BLUE, bold=True)
     elif kind=='embedding':
         e=review['embedding']; real=review['real_tokenizer']
-        panel(c,.60,2.08,5.85,3.25,'查表：ID 指定读取参数表的哪一行')
-        c.text(.87,2.75,5.28,.36,'真实配置：“我喜欢喝牛奶。”',21,INK)
-        c.text(.87,3.25,5.28,.38,'ID = '+str(real['ids']),23,BLUE,bold=True)
-        c.text(.87,3.83,5.28,.36,'→ E[300]、E[304]、E[262]',22,TEAL)
-        prose(c,.87,4.45,5.27,['相同 ID 在查表时读取相同参数；位置和上下文在后续参与计算。'],19,bottom=5.23)
-        panel(c,6.65,2.08,6.05,3.25,'训练：误差推动参数改变')
-        for i,label in enumerate(('预测 → 计算 loss','backward → 计算梯度','optimizer.step → 更新参数')):
-            c.text(6.93,2.73+i*.48,5.45,.36,label,21,INK)
-        c.text(6.93,4.47,5.45,.35,'第二课 loss：'+f"{e['bigram_loss_start']:.4f} → {e['bigram_loss_end']:.4f}",22,GREEN,bold=True)
-        code(c,['vectors = embedding(ids)','loss.backward(); optimizer.step()'])
+        label(c, .80, 2.23, '查表：选哪一行', w=5.2, color=BLUE, size=22)
+        c.text(.80, 3.00, 5.10, .42, '“我喜欢喝牛奶。”', 25, INK)
+        c.text(.80, 3.61, 5.10, .43, 'ID = '+str(real['ids']), 25, BLUE, bold=True)
+        equation(c, r'\mathbf X=\mathbf E[[300,304,262]]', .81, 4.38, 5.10, .55, size=27)
+        c.text(.80, 5.40, 5.15, .81, '词表大小 320，向量宽度 D：\nE 是 [320,D]，查出的 X 是 [3,D]。', 21, INK)
+        c.line(6.27, 2.25, 6.27, 6.71, LINE)
+        label(c, 6.77, 2.23, '训练：这一行的数怎样改变', w=5.8, color=TEAL, size=22)
+        c.text(6.77, 3.00, 5.72, .41, '预测 → loss → 梯度 → 参数更新', 23, INK)
+        label(c, 6.77, 3.78, '第二课二维小表：第 1 行，学习率 0.1', w=5.8, size=17)
+        c.text(6.77, 4.30, 5.70, .42, '[0.2, -0.1] − 0.1 × [1, 2]', 25, INK)
+        c.text(6.77, 4.96, 5.70, .42, '= [0.1, -0.3]', 28, TEAL, bold=True)
+        c.text(6.77, 5.76, 5.72, .79, 'backward 计算梯度；step 更新参数。\n同一 ID 出现多次，梯度累加到同一行。', 20, INK)
     elif kind=='positions':
-        panel(c,.60,2.08,5.85,4.18,'方案 A：给输入加上位置向量')
-        equation(c,r'\mathbf{x}_p=\mathbf{E}[u_p]+\mathbf{P}_p',.90,2.74,5.25,.66,size=30)
-        prose(c,.88,3.67,5.28,[
-            '同一个 token 的内容向量可以相同，位置向量随序号改变。',
-            '位置表可以训练学习，也可以由多频率 sin/cos 公式生成。',
-            '位置 0、1、2 指 token 序号。'],20,gap=.17,bottom=5.99)
-        panel(c,6.65,2.08,6.05,4.18,'方案 B：RoPE 按位置旋转 Q/K')
-        arrow_pair(c,8.10,4.05,(1,3))
-        c.text(9.45,2.83,2.93,.37,'每格多转 30°',21,BLUE,bold=True)
-        c.text(9.45,3.43,2.93,.37,'位置 1 / 3',21,INK)
-        c.text(9.45,3.93,2.93,.37,'转 30° / 90°',21,TEAL)
-        c.text(9.45,4.43,2.93,.37,'相差 60°',22,BLUE,bold=True)
-        c.text(6.95,5.23,5.44,.70,'一起移到位置 3 / 5：转 90° / 150°，仍相差 60°。',20,INK)
+        label(c, .80, 2.23, '相加式：位置进入输入向量', w=5.2, color=BLUE, size=21)
+        equation(c, r'\mathbf x_p=\mathbf E[u_p]+\mathbf P_p', .80, 3.03, 5.20, .64, size=32)
+        prose(c, .80, 4.12, 5.10, [
+            '同一个 token 查到同一内容向量；换了位置，加上的位置向量不同。',
+            'P 可以是一张可学习的表，也可以由不同频率的 sin/cos 生成。'], 22, gap=.24)
+        c.line(6.25, 2.25, 6.25, 6.71, LINE)
+        label(c, 6.75, 2.23, 'RoPE：位置进入 Q/K 的夹角', w=5.85, color=TEAL, size=21)
+        # 同样的内容箭头，每前进一格转30度；对比共同平移。
+        arrow_pair(c, 8.03, 4.25, (1,3))
+        arrow_pair(c, 11.17, 4.25, (3,5))
+        c.text(6.82, 5.28, 2.45, .38, '位置 1、3', 21, INK, center=True)
+        c.text(9.96, 5.28, 2.45, .38, '位置 3、5', 21, INK, center=True)
+        c.text(6.75, 2.91, 5.85, .34, '初始都向右，每格转 30°；蓝 Q、绿 K。', 18, MUTED, center=True)
+        c.text(6.75, 6.03, 5.85, .75, '两个箭头一起多转 60°，夹角仍是 60°。\n点积反映相对位置；V 不旋转。', 21, TEAL)
     elif kind=='qkv_roles':
-        formula_strip(c,r'\mathbf Q=\mathbf X\mathbf W_Q,\quad \mathbf K=\mathbf X\mathbf W_K,\quad \mathbf V=\mathbf X\mathbf W_V')
-        cards=[(.60,'Q：用于发起匹配',BLUE,'当前位置用哪些特征寻找需要的信息？','“喝”的 Q 会分别与三个位置的 K 比较。'),
-               (4.70,'K：用于接受匹配',TEAL,'每个位置提供哪些特征，供其他位置匹配？','与 Q 的点积，决定这个位置的匹配分数。'),
-               (8.80,'V：提供被读取内容',ORANGE,'匹配完成后，实际从每个位置拿走什么？','按注意力权重混合 V，形成新的上下文向量。')]
-        for x,title,color,a,bb in cards:
-            panel(c,x,2.99,3.90,2.64,title,color)
-            prose(c,x+.23,3.62,3.42,[a,bb],19,gap=.15,bottom=5.50)
-        c.text(.88,5.94,11.5,.37,'训练学习 W_Q / W_K / W_V；每次前向计算都根据输入生成新的匹配权重。',20,INK)
+        label(c, .80, 2.22, '同一份 X，经过三组不同的可训练参数', w=11.7)
+        equation(c, r'\mathbf Q=\mathbf X\mathbf W_Q,\quad\mathbf K=\mathbf X\mathbf W_K,\quad\mathbf V=\mathbf X\mathbf W_V', .80, 2.93, 11.70, .60, size=32)
+        for x, name, role, example, color in (
+            (.80,'Q · Query','查询方的匹配特征','拿“喝”的 Q 去比较\n每个位置的 K。',BLUE),
+            (4.96,'K · Key','被查询方的匹配特征','Q 与 K 做点积，\n得到匹配分数。',TEAL),
+            (9.12,'V · Value','实际用于汇总的内容','按匹配得到的权重，\n对 V 加权相加。',ORANGE)):
+            c.text(x, 3.97, 3.38, .44, name, 27, color, bold=True)
+            c.text(x, 4.62, 3.38, .40, role, 20, INK)
+            c.text(x, 5.25, 3.38, .83, example, 21, INK)
+        for xx in (4.48,8.64): c.line(xx,4.00,xx,6.12,LINE)
+        c.text(.80, 6.52, 11.70, .36, 'Q/K 决定“读多少”，V 决定“读到什么”。后面分别改一次，观察结果。', 20, MUTED)
     elif kind=='projections':
-        # Each branch shows the actual 2x2 parameter matrix and its 3x2 result.
-        for i,(tag,key,color) in enumerate((('Q','q',BLUE),('K','k',TEAL),('V','v',ORANGE))):
-            x=.60+i*4.10
-            panel(c,x,2.08,3.90,3.27,'W_'+tag+'  →  '+tag,color)
-            table(c,x+.20,2.70,3.50,b['w_'+key],cell_h=.43,size=21)
-            c.text(x+.23,3.63,3.40,.32,tag+' = X @ W_'+tag,19,color,bold=True)
-            table(c,x+.20,4.03,3.50,b[key],labels=['我','喜欢','喝'],cell_h=.39,size=19)
-        c.rect(.60,5.54,12.10,.73,PALE)
-        c.text(.85,5.61,11.62,.33,'X 的三行：我 [1,0] ／ 喜欢 [0,1] ／ 喝 [1,1]',19,BLUE,bold=True)
-        c.text(.85,5.93,11.62,.33,'手算“喝”的 V：[1,1] @ W_V = [3,-1]',19,INK)
+        c.text(.80, 2.23, 11.70, .44, 'X 的三行：我 [1,0]    喜欢 [0,1]    喝 [1,1]', 25, INK, bold=True)
+        c.text(.80, 2.83, 11.70, .34, '本节算例：T=3，每个向量两维；三张 W 都是 2×2 参数矩阵。', 18, MUTED)
+        for i, (tag,key,color) in enumerate((('Q','q',BLUE),('K','k',TEAL),('V','v',ORANGE))):
+            x=.80+i*4.06
+            equation(c,rf'\mathbf W_{{{tag}}}',x,3.35,3.45,.40,size=23)
+            table(c,x,3.91,3.45,b['w_'+key],cell_h=.46,size=23)
+            equation(c,rf'\mathbf {tag}=\mathbf X\mathbf W_{{{tag}}}',x,4.97,3.45,.39,size=24)
+            table(c,x,5.44,3.45,b[key],labels=b['tokens'],cell_h=.40,size=21,highlight_row=2)
+        for xx in (4.45,8.51): c.line(xx,3.42,xx,6.75,LINE)
     elif kind=='one_query':
-        formula_strip(c,r'\mathbf q_2=[1,2],\qquad s_{2,j}=\mathbf q_2\cdot\mathbf k_j')
-        two_panels(c,'“喝”的 Q 与三个 K 逐个匹配','缩放、归一化：得到一行读取比例')
-        lines=['[1,2] · [1,1] = 3','[1,2] · [0,1] = 2','[1,2] · [1,2] = 5']
-        for i,line in enumerate(lines):
-            c.text(.89,3.61+i*.48,5.25,.38,line,23,INK)
-        c.text(6.93,3.59,5.44,.37,'分数：[3, 2, 5] / √2',23,INK)
-        c.text(6.93,4.12,5.44,.37,'权重 ≈ '+vec(b['weights'][2]),23,BLUE,bold=True)
-        c.text(6.93,4.73,5.44,.35,'分别读取：我 / 喜欢 / 喝',20,MUTED)
-        code(c,['scores = q[-1] @ k.T / math.sqrt(2)','last_weights = scores.softmax(dim=-1)'])
+        c.text(.80, 2.27, 11.70, .48, '“喝”的查询向量 q₂ = [1, 2]', 29, BLUE, bold=True)
+        label(c,.80,3.13,'被匹配的位置',w=2.6)
+        label(c,3.27,3.13,'该位置的 K',w=3.0)
+        label(c,7.12,3.13,'与 q₂ 的点积',w=5)
+        for i,(token,key,score) in enumerate(zip(b['tokens'],b['k'],b['raw_scores'][2])):
+            yy=3.81+i*.68
+            c.text(.80,yy,1.80,.43,token,25,INK)
+            c.text(3.27,yy,2.60,.43,vec(key),25,TEAL)
+            c.text(7.12,yy,5.12,.43,f'1×{fmt(key[0])} + 2×{fmt(key[1])} = {fmt(score)}',25,BLUE,bold=True)
+        c.text(.80,6.17,11.70,.44,'一行原始分数：[3, 2, 5]。其他位置的 Q 也这样计算。',23,INK)
+        code(c,['raw_row = q[-1] @ k.T'],y=6.70,size=17)
     elif kind=='score_matrix':
-        formula_strip(c,r'\mathbf{Q}\mathbf{K}^{\mathsf{T}}=\mathbf{S}_{\mathrm{raw}}')
-        two_panels(c,'一个格子 = 一对 Q/K 的点积','完整原始分数表：行查询，列被读取')
-        prose(c,.88,3.61,5.27,[
-            '第 i 行：位置 i 正在查询。第 j 列：它正在读取位置 j。',
-            '“喜欢”查询“喝”：[0,2] · [1,2] = 4。',
-            '形状：[3,2] @ [2,3] → [3,3]。'],19,gap=.09,bottom=5.25)
-        table(c,6.91,3.59,5.52,b['raw_scores'],labels=['我','喜欢','喝'],
-              columns=['我','喜欢','喝'],cell_h=.41,size=21,highlight_row=2)
-        code(c,['raw_scores = q @ k.T'])
+        for x,w,title in ((.80,2.50,'Q  [3,2]'),(4.00,3.50,'K.T  [2,3]'),(8.25,4.25,'原始分数  [3,3]')):
+            label(c,x,2.24,title,w=w,color=BLUE,size=21)
+        table(c,.80,3.08,2.50,b['q'],labels=b['tokens'],cell_h=.65,size=24,highlight_row=2)
+        kt=list(map(list,zip(*b['k'])))
+        table(c,4.00,3.08,3.50,kt,columns=b['tokens'],cell_h=.65,size=24)
+        c.text(3.46,3.94,.45,.51,'×',29,MUTED,center=True)
+        c.text(7.63,3.94,.42,.51,'=',29,MUTED,center=True)
+        table(c,8.25,3.08,4.25,b['raw_scores'],labels=b['tokens'],columns=b['tokens'],cell_h=.65,size=24,highlight_row=2)
+        c.text(.80,5.87,11.70,.45,'行：谁在查询。列：查询哪个位置。',24,INK,bold=True)
+        c.text(.80,6.48,11.70,.37,'例如第 1 行、第 2 列：“喜欢”查询“喝”，[0,2] · [1,2] = 4。',21,MUTED)
     elif kind=='scale':
-        formula_strip(c,r'\mathbf S=\frac{\mathbf Q\mathbf K^\mathsf{T}}{\sqrt{d_k}},\qquad d_k=2')
-        two_panels(c,'为何缩放：控制点积的数值尺度','同一行分数：缩放前后比较')
-        prose(c,.88,3.61,5.27,[
-            '点积累加 d_k 个乘积，维度增大时，典型波动幅度会增大。',
-            '较大的分数差会让 Softmax 更集中；缩放缓和这种集中程度。'],19,gap=.15,bottom=5.24)
-        c.text(6.92,3.61,5.47,.35,'不缩放：[3, 2, 5]',21,INK)
-        c.text(6.92,4.03,5.47,.36,'→ '+vec(r['scale']['unscaled_weights'][2]),22,ORANGE)
-        c.text(6.92,4.51,5.47,.35,'除以 √2 后：',21,INK)
-        c.text(6.92,4.91,5.47,.35,'→ '+vec(b['weights'][2]),22,BLUE,bold=True)
-        code(c,['scores = raw_scores / math.sqrt(q.shape[-1])'])
+        equation(c,r'\mathbf S=\frac{\mathbf Q\mathbf K^{\mathsf{T}}}{\sqrt{d_k}}',.80,2.35,5.05,.96,size=36)
+        prose(c,.80,3.88,5.05,[
+            '点积累加各维度的乘积。\n分量近似独立、尺度相近时，\n维度越高，典型波动越大。',
+            '分数差大，Softmax 会更集中。\n按维度的平方根缩放，\n可以缓和这种集中。'],22,gap=.22)
+        label(c,6.57,2.24,'“喝”这一行：读取权重的变化',w=6,color=BLUE,size=21)
+        c.text(6.57,3.05,5.90,.38,'原始分数 [3,2,5]，Q/K 都是两维',21,INK)
+        for i,token in enumerate(b['tokens']):
+            yy=3.81+i*.78
+            c.text(6.57,yy+.02,.80,.40,token,22,INK)
+            for dy,values,color in ((0,r['scale']['unscaled_weights'][2],'9AA8B6'),(.27,b['weights'][2],BLUE)):
+                value=values[i]
+                c.rect(7.62,yy+dy+.08,3.48*value,.13,color,False)
+                c.text(11.32,yy+dy-.035,1.14,.33,f'{value:.3f}',18,color)
+        c.text(6.57,6.54,5.90,.31,'灰色：不缩放     蓝色：除以 √2',18,MUTED)
     elif kind=='mask':
-        panel(c,.60,2.08,5.85,3.25,'先限制可读范围，再做 Softmax')
-        prose(c,.88,2.74,5.27,[
-            '行 i 只能读取列 j≤i：过去与当前位置。',
-            '未来格子的分数设为 -∞，其指数为 0，归一化后权重也为 0。',
-            '对角线保留：当前输入用于预测下一 token。'],19,gap=.15,bottom=5.18)
-        panel(c,6.65,2.08,6.05,3.25,'缩放分数 + 因果 mask')
+        label(c,.80,2.23,'缩放后的分数：未来设为 −∞',w=5.4,color=BLUE,size=21)
         rows=[['-∞' if b['forbidden'][i][j] else b['scores'][i][j] for j in range(3)] for i in range(3)]
-        table(c,6.92,2.78,5.49,rows,labels=['我','喜欢','喝'],
-              columns=['我','喜欢','喝'],cell_h=.53,size=22)
-        c.text(6.92,5.00,5.49,.31,'设为 0 仍有 exp(0)=1，无法屏蔽。',18,MUTED)
-        code(c,['future = torch.ones(3, 3, dtype=torch.bool).triu(1)',
-                'masked = scores.masked_fill(future, -torch.inf)'])
+        table(c,.80,3.06,5.08,rows,labels=b['tokens'],columns=b['tokens'],cell_h=.65,size=24,highlight_row=1)
+        c.text(6.10,3.92,1.14,.45,'→',30,BLUE,center=True)
+        c.text(5.95,4.66,1.48,.35,'Softmax',17,MUTED,center=True)
+        label(c,7.60,2.23,'可见位置间的读取权重 A',w=4.9,color=BLUE,size=21)
+        table(c,7.60,3.06,4.91,b['weights'],labels=b['tokens'],columns=b['tokens'],cell_h=.65,size=23,heat=True)
+        c.text(.80,5.95,11.70,.45,'“喜欢”用“我、喜欢”预测“喝”：保留自身，屏蔽未来。',24,INK)
+        c.text(.80,6.57,11.70,.35,'exp(−∞)=0；把未来分数设为 0 则仍有 exp(0)=1。Mask 要在 Softmax 之前加。',20,MUTED)
     elif kind=='mix':
-        formula_strip(c,r'\mathbf A=\operatorname{softmax}_{j}(\mathbf S+\mathbf M),\qquad\mathbf Z=\mathbf A\mathbf V')
-        two_panels(c,'A：每个查询在可见位置间分配权重','Z：每行都是加权后的新向量')
-        table(c,.85,3.53,5.34,b['weights'],labels=['我','喜欢','喝'],
-              columns=['我','喜欢','喝'],cell_h=.43,size=20,heat=True)
-        table(c,6.92,3.53,5.49,b['output'],labels=['我','喜欢','喝'],
-              columns=['分量 0','分量 1'],cell_h=.43,size=21)
-        code(c,['weights = masked.softmax(dim=-1)','output = weights @ v',
-                '# Row 1: 0.5*v[0] + 0.5*v[1] = [1.5, -0.5]'],y=5.35,height=1.04)
-    elif kind in ('change_v','change_k'):
-        d=r['interventions']['value' if kind=='change_v' else 'key']
-        panel(c,.60,2.08,3.65,3.25,'只改一个中间张量')
-        if kind=='change_v':
-            prose(c,.85,2.75,3.15,[
-                'Q、K 固定。',
-                'V[0]：[1,-1] → [3,-1]。',
-                '权重不变。输出变化 = 第 0 列权重 × [2,0]。'],19,gap=.17,bottom=5.22)
-        else:
-            prose(c,.85,2.75,3.15,[
-                'Q、V 固定。',
-                'K[0]：[1,1] → [2,1]。',
-                '观察最后一行：第 0 个匹配分数从 3 变为 4。'],19,gap=.17,bottom=5.22)
-        panel(c,4.45,2.08,8.25,3.25,'同一位置的输出：修改前 → 修改后')
-        c.text(5.47,2.77,3.24,.34,'修改前 Z',19,MUTED,center=True)
-        c.text(9.08,2.77,3.24,.34,'修改后 Z',19,BLUE,center=True)
-        for i,label in enumerate(b['tokens']):
-            y=3.28+i*.47
-            c.text(4.71,y,.65,.34,label,18,MUTED,center=True)
-            c.text(5.47,y,3.24,.37,vec(d['output_before'][i]),22,INK,center=True)
-            c.text(9.08,y,3.24,.37,vec(d['output_after'][i]),22,BLUE,bold=True,center=True)
-        caption=('第三行变化：'+vec(d['delta_output'][2]) if kind=='change_v' else
-                 '最后一行权重：'+vec(d['weights_before'][2])+' → '+vec(d['weights_after'][2]))
-        c.text(4.72,4.91,7.66,.34,caption,18,GREEN)
-        code(c,['changed_v = v.clone(); changed_v[0] += v.new_tensor([2., 0.])',
-                'changed = attention(q, k, changed_v)'] if kind=='change_v' else
-               ['changed_k = k.clone(); changed_k[0] += k.new_tensor([1., 0.])',
-                'changed = attention(q, changed_k, v)'])
+        label(c,.80,2.23,'A：读取比例',w=4.1,color=BLUE,size=21)
+        label(c,5.63,2.23,'V：被读取的内容',w=2.75,color=TEAL,size=20)
+        label(c,9.09,2.23,'Z：新的向量',w=3.41,color=BLUE,size=21)
+        table(c,.80,3.13,4.14,b['weights'],labels=b['tokens'],columns=b['tokens'],cell_h=.63,size=22,heat=True)
+        table(c,5.63,3.61,2.75,b['v'],cell_h=.63,size=23)
+        table(c,9.09,3.61,3.41,b['output'],cell_h=.63,size=23,highlight_row=1)
+        c.text(5.04,4.15,.43,.48,'×',29,MUTED,center=True)
+        c.text(8.48,4.15,.42,.48,'=',29,MUTED,center=True)
+        equation(c,r'\mathbf z_1=0.5[1,-1]+0.5[2,0]=[1.5,-0.5]',.80,5.96,11.70,.51,size=29)
+        c.text(.80,6.66,11.70,.35,'[3,3] @ [3,2] → [3,2]。每个位置仍有一个向量，现在包含它读取的上下文。',20,MUTED)
+    elif kind=='change_v':
+        d=r['interventions']['value']
+        c.text(.80,2.24,11.70,.45,'固定 Q/K，把 V[0] 从 [1,−1] 改成 [3,−1]：增加 [2,0]。',24,INK)
+        label(c,.80,3.18,'权重 A 保持不变',w=5,color=BLUE,size=21)
+        table(c,.80,3.88,4.75,b['weights'],labels=b['tokens'],columns=b['tokens'],cell_h=.58,size=23,heat=True)
+        label(c,6.26,3.18,'各行输出的变化 = A 的第 0 列 × [2,0]',w=6.2,color=BLUE,size=20)
+        for i,token in enumerate(b['tokens']):
+            yy=3.97+i*.60
+            c.text(6.26,yy,.78,.42,token,22,INK)
+            c.text(7.33,yy,5.10,.42,f'{format(b["weights"][i][0],".4f").rstrip("0").rstrip(".")} × [2,0] '+('≈ ' if i==2 else '= ')+vec(d['delta_output'][i]),22,BLUE)
+        c.text(.80,6.26,11.70,.46,'匹配分数没有变；每个位置读到多少变化，取决于它给“我”的权重。',23,INK)
+    elif kind=='change_k':
+        d=r['interventions']['key']
+        c.text(.80,2.24,11.70,.45,'固定 Q/V，把 K[0] 从 [1,1] 改成 [2,1]。',25,INK)
+        label(c,.80,3.15,'只看“喝”这一行',w=5,color=BLUE,size=21)
+        for y,name,before,after in (
+            (3.90,'原始分数','[3, 2, 5]','[4, 2, 5]'),
+            (4.67,'读取权重',vec(d['weights_before'][2]),vec(d['weights_after'][2])),
+            (5.44,'输出 Z[2]',vec(d['output_before'][2]),vec(d['output_after'][2]))):
+            c.text(.80,y,2.14,.43,name,22,MUTED)
+            c.text(3.10,y,4.00,.43,before,26,INK)
+            c.text(7.27,y,.50,.43,'→',25,MUTED,center=True)
+            c.text(8.05,y,4.43,.43,after,26,BLUE,bold=True)
+        c.text(.80,6.41,11.70,.39,'前两行恰好不变：第一行只能读自身；第二行 Q=[0,2] 与 K 的改变量 [1,0] 点积为 0。',20,MUTED)
     elif kind=='causality':
         d=r['interventions']['causality']
-        panel(c,.60,2.08,4.12,3.25,'改输入，再重算全部投影')
-        c.text(.88,2.75,3.56,.34,'只改最后位置 X[2]：',19,INK)
-        c.text(.88,3.20,3.56,.38,'[1,1] → [4,-1]',23,BLUE,bold=True)
-        prose(c,.88,3.89,3.56,[
-            '位置与参数固定。',
-            '重新生成 Q/K/V。',
-            '比较每行的最大绝对差。'],19,gap=.10,bottom=5.24)
-        panel(c,4.92,2.08,7.78,3.25,'对照实验：打开 / 关闭因果 mask')
-        delta=lambda a,b:[max(abs(x-y) for x,y in zip(aa,bb)) for aa,bb in zip(a,b)]
-        on=delta(d['masked_before'],d['masked_after'])
-        off=delta(d['unmasked_before'],d['unmasked_after'])
-        table(c,5.16,2.75,7.27,list(zip(on,off)),labels=b['tokens'],
-              columns=['mask 打开','mask 关闭'],cell_h=.53,size=23,highlight_row=2)
-        c.text(5.22,5.00,7.1,.31,'前两行变化为 0；最后位置确实改变。',18,GREEN,bold=True)
-        code(c,['changed_x = x.clone(); changed_x[-1] += x.new_tensor([3., -2.])',
-                'q2, k2, v2 = project(changed_x)'])
+        c.text(.80,2.24,11.70,.45,'把最后位置 X[2] 从 [1,1] 改成 [4,−1]，用相同参数重新计算 Q/K/V。',23,INK)
+        for x,title,before,after,color in (
+            (.80,'使用因果 Mask',d['masked_before'],d['masked_after'],BLUE),
+            (7.01,'去掉 Mask',d['unmasked_before'],d['unmasked_after'],ORANGE)):
+            label(c,x,3.09,title,w=5.5,color=color,size=23)
+            c.text(x+.84,3.82,2.20,.33,'修改前的输出',17,MUTED,center=True)
+            c.text(x+3.22,3.82,2.25,.33,'修改后的输出',17,color,center=True)
+            for i,token in enumerate(b['tokens']):
+                yy=4.41+i*.57
+                c.text(x,yy,.76,.39,token,20,MUTED)
+                c.text(x+.84,yy,2.20,.39,vec(before[i]),19,INK,center=True)
+                c.text(x+3.22,yy,2.25,.39,vec(after[i]),19,color,center=True)
+        c.line(6.39,3.10,6.39,5.98,LINE)
+        c.text(.80,6.40,11.70,.43,'因果 Mask 让前两行读不到改动后的 K/V，因此它们的输出不变。',22,INK)
     elif kind=='core_code':
-        c.rect(.60,2.08,12.10,2.75,DARK)
         lines=[
-            'q, k, v = x @ w_q, x @ w_k, x @ w_v',
-            'scores = q @ k.T / math.sqrt(q.shape[-1])',
-            'future = torch.ones(3, 3, dtype=torch.bool).triu(1)',
-            'masked = scores.masked_fill(future, -torch.inf)',
-            'weights = masked.softmax(dim=-1)',
-            'output = weights @ v']
-        for i,line in enumerate(lines):
-            c.text(.87,2.31+i*.39,11.52,.35,line,19,WHITE,mono=True)
-        for i,(title,body) in enumerate((
-            ('① 投影与匹配','[3,2] → 分数 [3,3]'),
-            ('② 可读范围与比例','mask → 每行权重和为 1'),
-            ('③ 汇总内容','[3,3] @ [3,2] → [3,2]'))):
-            x=.60+i*4.10; panel(c,x,5.04,3.90,1.20,title)
-            c.text(x+.22,5.66,3.46,.35,body,18,INK)
+            ('q, k, v = x @ w_q, x @ w_k, x @ w_v','三种投影 [3,2]'),
+            ('scores = q @ k.T / math.sqrt(q.shape[-1])','分数 [3,3]'),
+            ('future = torch.ones(3, 3, dtype=torch.bool).triu(1)','右上三角'),
+            ('masked = scores.masked_fill(future, -torch.inf)','屏蔽未来'),
+            ('weights = masked.softmax(dim=-1)','沿 key 轴归一化'),
+            ('output = weights @ v','新向量 [3,2]')]
+        c.rect(.79,2.40,11.73,3.74,'F5F7FA',False)
+        for i,(line,note) in enumerate(lines):
+            yy=2.71+i*.52
+            c.text(.98,yy,.34,.35,str(i+1),16,MUTED,mono=True)
+            c.text(1.47,yy,8.64,.36,line,18,INK,mono=True)
+            c.text(10.43,yy,1.89,.36,note,16,BLUE)
+        equation(c,r'\operatorname{Attention}(Q,K,V)=\operatorname{softmax}\!\left(\frac{QK^{\mathsf{T}}}{\sqrt{d_k}}+M\right)V',.80,6.42,11.70,.50,size=28)
     elif kind=='multihead':
-        panel(c,.60,2.08,12.10,4.16,'结构示意：D=4，H=2，每个头宽度为 2')
-        c.rect(.90,3.63,2.15,.68,PALE)
-        c.text(1.00,3.78,1.95,.38,'X [1,3,4]',22,BLUE,bold=True,center=True)
-        c.line(3.08,3.97,3.60,3.97)
-        c.line(3.60,3.97,3.60,3.18)
-        c.line(3.60,3.18,4.05,3.18,arrow=True)
-        c.line(3.60,3.97,3.60,4.77)
-        c.line(3.60,4.77,4.05,4.77,arrow=True)
-        for i,y in enumerate((2.73,4.32)):
-            c.rect(4.08,y,3.77,.94,PALE if i==0 else 'DFF0ED')
-            c.text(4.22,y+.13,3.49,.34,f'Head {i+1}：投影 → Attention',18,BLUE if i==0 else TEAL,bold=True,center=True)
-            c.text(4.22,y+.55,3.49,.30,'输出 [1,3,2]',17,MUTED,center=True)
-            c.line(7.88,y+.45,8.48,y+.45)
-        c.line(8.48,3.18,8.48,4.77)
-        c.line(8.48,3.97,8.96,3.97,arrow=True)
-        c.rect(8.99,3.54,3.37,.88,PALE)
-        c.text(9.12,3.67,3.11,.34,'拼接 → W_O',20,BLUE,bold=True,center=True)
-        c.text(9.12,4.06,3.11,.30,'输出 [1,3,4]',17,MUTED,center=True)
-        c.text(.94,5.72,11.32,.36,'每头学习不同投影；下一课实现拆头、合头，再接残差、Norm 和 FFN。',20,INK)
+        label(c,.80,2.24,'结构示例：B=1，T=3，D=4；两个头，每头 2 维',w=11.7)
+        node(c,.80,3.99,2.05,.71,'X [1,3,4]',size=21,color=BLUE)
+        c.line(2.87,4.35,3.40,4.35,LINE)
+        c.line(3.40,3.34,3.40,5.34,LINE)
+        for i,yy in enumerate((2.95,4.95)):
+            c.line(3.40,yy+.39,3.98,yy+.39,LINE,arrow=True)
+            node(c,4.01,yy,4.03,.79,f'Q/K/V 投影 {i+1} → Attention',fill=PALE if i==0 else 'EAF3F2',size=20,color=BLUE if i==0 else TEAL)
+            c.text(4.01,yy+.96,4.03,.33,'各自输出 [1,3,2]',18,MUTED,center=True)
+            c.line(8.06,yy+.39,8.57,yy+.39,LINE)
+        c.line(8.57,3.34,8.57,5.34,LINE)
+        c.line(8.57,4.35,9.12,4.35,LINE,arrow=True)
+        node(c,9.15,3.93,3.35,.83,'拼接 → W_O',size=24,color=BLUE)
+        c.text(9.15,5.02,3.35,.36,'输出 [1,3,4]',20,INK,center=True)
+        c.text(.80,6.44,11.70,.41,'不同的投影产生各头的读取权重；拼接后，再用 W_O 合并信息。',22,INK)
     elif kind=='quiz':
-        panel(c,.60,2.08,5.85,3.89,'先看图：任选一行，解释它在做什么')
-        table(c,.87,2.77,5.30,b['weights'],labels=b['tokens'],columns=b['tokens'],
-              cell_h=.58,size=22,heat=True)
-        c.text(.90,5.28,5.20,.37,'这一行由哪个 Q 查询哪些 K？',22,BLUE,bold=True)
-        panel(c,6.65,2.08,6.05,3.89,'再回答：先预测，再运行')
-        prose(c,6.92,2.76,5.49,[
-            '① 只改 V：哪一步开始变化？',
-            '② 修改未来输入：前两行会变吗？',
-            '③ 为什么保留对角线？',
-            '④ Attention 最后输出什么？'],21,gap=.17,bottom=5.80)
-        c.text(.89,6.13,11.6,.32,'下一课：多头 + 输出投影 + 残差 + Norm + FFN → 一个完整 Transformer Block',18,MUTED)
+        label(c,.80,2.23,'同一张权重矩阵 A',w=5.4,color=BLUE,size=22)
+        table(c,.80,3.15,5.02,b['weights'],labels=b['tokens'],columns=b['tokens'],cell_h=.69,size=25,heat=True)
+        c.text(.80,6.00,5.07,.82,'V[0]=[1,−1]，V[1]=[2,0]\nV[2]=[3,−1]',21,INK)
+        c.line(6.30,2.25,6.30,6.80,LINE)
+        prose(c,6.80,2.99,5.70,[
+            '“喜欢”这一行读了谁？为什么没有读“喝”？',
+            '用这一行权重和左侧 V，算出“喜欢”的新向量。',
+            '只改 V[0]，A 会变吗？如果改的是 K[0] 呢？'],24,gap=.34)
     else:
         raise ValueError(kind)

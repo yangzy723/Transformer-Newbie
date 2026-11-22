@@ -31,7 +31,7 @@ FORMULAS={
 CODE={
 'qkv_roles':['q, k, v = project(x)'],
 'projections':['q = x @ w_q','k = x @ w_k','v = x @ w_v'],
-'one_query':['scores = q[-1] @ k.T / math.sqrt(2)','weights = scores.softmax(-1)'],
+'one_query':['raw_row = q[-1] @ k.T'],
 'score_matrix':['raw_scores = q @ k.T'],
 'scale':['scores = raw_scores / math.sqrt(q.shape[-1])'],
 'mask':['future = torch.ones(3, 3, dtype=torch.bool).triu(1)','masked = scores.masked_fill(future, -torch.inf)'],
@@ -61,9 +61,9 @@ def write_texts(items):
         slides += ['\n## '+title+'\n',item['subtitle'],'\n'.join('- '+s for s in item['explanation']),
                    '\n> '+item['takeaway'],'\n**讲者备注**：'+item['notes']]
         guide += ['\n## '+title+'\n','\n'.join('- '+s for s in item['explanation']),
-                  '\n**讲法、提问与预期回答**：'+item['notes'],'\n**页面收束**：'+item['takeaway']]
+                  '\n**讲法、提问与预期回答**：'+item['notes'],'\n**要点**：'+item['takeaway']]
         lab=f"实验{item['experiment']:02d}" if item['experiment'] else '图示/检查'
-        guide += [f"\n**对应操作**：{lab}；[{item['source']}]({item['source']})。"]
+        guide += ["\n**课堂操作**："+item["operation"], f"\n**代码位置**：{lab}；[{item['source']}]({item['source']})。"]
         mapping += [f"| {n} | {start}–{end} | {item['title']} | {lab} | [{item['source']}]({item['source']}) |"]
         if item['kind'] in FORMULAS:
             slides += ['\n$$\n'+FORMULAS[item['kind']]+'\n$$']
@@ -112,12 +112,16 @@ def build():
         header(c,item,n,start,end,len(items));draw(c,item,report);reference(c,item)
         slide.notes_slide.notes_text_frame.text=(
             f"第{n}页 {start}–{end}分钟\n{item['title']}\n"+
-            '\n'.join(item['explanation'])+'\n讲解与问题：'+item['notes']+
+            '\n'.join(item['explanation'])+'\n讲解与问题：'+item['notes']+'\n课堂操作：'+item['operation']+
             f"\n代码：{item['source']}；Notebook实验：{item.get('experiment')}"+
             '\n数值来源：assets/lesson_report.json。完整精度计算，页面取近似值。')
         canvases.append(c);metrics.append(dict(page=n,title=item['title'],text=c.text_metrics,ink=c.ink_boxes))
     assert minute==60
     validation=validate_layout(canvases)
+    used_formulas = set().union(*(getattr(c, 'formula_paths', set()) for c in canvases))
+    for path in (ROOT/'assets/formulas').glob('*.png'):
+        if path not in used_formulas:
+            path.unlink()
     ppt.save(ROOT/'class3_attention.pptx')
     save_vector_pdf(canvases,ROOT/'class3_attention.pdf')
     write_texts(items)
