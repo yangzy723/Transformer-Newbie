@@ -1,0 +1,2 @@
+# 沿用第二课环境与本地 tokenizer；安装后课程实验可离线运行。
+-r ../class2/requirements.txt

@@ -33,3 +33,17 @@ python3 class1/code/lesson.py
 - [学生讲义](class2/student_handout.md)
 
 第二课包含加权 BPE 与 rank 编码、真实 ByteLevel Tokenizers 配置、PyTorch embedding 梯度和下一 token 训练，以及正弦编码、RoPE 推导和多头接口。使用本地语料与配置，安装依赖后可离线运行。
+
+
+## 第三节课：复习与 Attention，60 分钟
+
+距离前两课较久时，先用25分钟恢复知识链路，再用同一组小矩阵深入Q/K/V、缩放、因果mask、逐行Softmax与V的加权汇总。
+
+从 **[class3 教学入口](class3/README.md)** 开始：
+
+- [21页课堂PPT](class3/class3_attention.pptx) / [PDF](class3/class3_attention.pdf)
+- [逐页教案](class3/teacher_guide.md) / [学生讲义](class3/student_handout.md)
+- [课堂Notebook](class3/demo.ipynb)，含实际执行输出
+- [整套预览](class3/assets/slides_preview.jpg)
+
+三个实验分别修改V、K和未来输入，观察权重、输出与因果性。下一课接多头、输出投影、残差、Norm和FFN，后续安排见[课程地图](class3/course_map.md)。
