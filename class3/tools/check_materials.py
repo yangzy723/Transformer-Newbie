@@ -28,7 +28,7 @@ def main():
                 assert style.find(qn('a:effectRef')).get('idx')=='0'
     notebook=nbformat.read(ROOT/'demo.ipynb',as_version=4)
     cells=[c for c in notebook.cells if c.cell_type=='code']
-    assert len(cells)==10 and all(c.execution_count is not None for c in cells)
+    assert len(cells)==11 and all(c.execution_count is not None for c in cells)
     assert all(o.output_type!='error' for c in cells for o in c.outputs)
     for file in ROOT.glob('*.md'):
         for link in re.findall(r'\]\(([^)]+)\)',file.read_text()):
@@ -51,7 +51,7 @@ def main():
             missing.update(ch for ch in entry['text'] if not ch.isspace() and ord(ch) not in available)
     assert not missing,missing
     print(f'教材一致性：{len(slides)}页/60分钟/25分钟复习、讲者备注、固定文本框、无主题阴影、')
-    print('            10个已执行代码单元、本地链接与字体字符覆盖通过。')
+    print('            11个已执行代码单元、本地链接与字体字符覆盖通过。')
 
 
 if __name__=='__main__':

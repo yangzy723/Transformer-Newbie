@@ -27,6 +27,17 @@ def first_lesson():
                 lm_logits=logits.tolist(), lm_probabilities=logits.softmax(-1).tolist())
 
 
+def residual_example():
+    """子层输出已给定，只演示一个位置的两次残差相加。"""
+    x_i = torch.tensor([1., 2.], dtype=DTYPE)
+    attention_update = torch.tensor([.3, -.2], dtype=DTYPE)
+    h_i = x_i + attention_update
+    ffn_update = torch.tensor([-.1, .4], dtype=DTYPE)
+    y_i = h_i + ffn_update
+    return dict(input=x_i.tolist(), attention_update=attention_update.tolist(),
+                after_attention=h_i.tolist(), ffn_update=ffn_update.tolist(), output=y_i.tolist())
+
+
 def bpe_review():
     merges, history = train_bpe(BPE_CORPUS, 4)
     result, steps = encode_bpe('你喜欢喝奶茶', merges)
@@ -78,7 +89,7 @@ def real_tokenizer():
 
 
 def build_review():
-    return dict(first_lesson=first_lesson(),bpe=bpe_review(),embedding=embedding_review(),
+    return dict(first_lesson=first_lesson(),residual=residual_example(),bpe=bpe_review(),embedding=embedding_review(),
                 rope_intuition=rope_intuition(),real_tokenizer=real_tokenizer())
 
 

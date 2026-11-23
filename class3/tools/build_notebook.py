@@ -11,7 +11,7 @@ def build(root):
     md(r"""
 # 第三课：重新走进 Transformer，理解 Attention
 
-33页PPT、60分钟。实验01–03复习前两课；实验04–08展开主算例与三个干预；
+36页PPT、60分钟。实验01–03复习前两课；实验04–08展开主算例与三个干预；
 实验09把RoPE接回计算。主例位置从0开始，第三个位置为2。
 """)
     code("""
@@ -33,7 +33,22 @@ x = X.clone()
 w_q, w_k, w_v = W_Q.clone(), W_K.clone(), W_V.clone()
 """)
     md("""
-## 实验01 · BPE与Embedding · PPT 4–6
+## 残差加法 · PPT 4
+
+只跟踪“喝”一个位置的二维向量。Attention与FFN的子层输出已给定，
+这里执行两次逐分量相加；各子层内部计算留到后续课程。
+""")
+    code("""
+x_i = torch.tensor([1., 2.], dtype=torch.float64)
+attention_update = torch.tensor([0.3, -0.2], dtype=torch.float64)
+h_i = x_i + attention_update
+ffn_update = torch.tensor([-0.1, 0.4], dtype=torch.float64)
+y_i = h_i + ffn_update
+print("第一次残差：", x_i, "+", attention_update, "=", h_i)
+print("第二次残差：", h_i, "+", ffn_update, "=", y_i)
+""")
+    md("""
+## 实验01 · BPE与Embedding · PPT 5–8
 
 每轮统计当前的相邻片段；编码执行已冻结的规则。对照最终两个token与中间五个token。
 
@@ -53,7 +68,7 @@ print("SGD前：", e["weight"], "SGD后：", e["after"])
 print("第二课bigram loss：", e["bigram_loss_start"], "→", e["bigram_loss_end"])
 """)
     md("""
-## 实验02 · 两支箭头一起转 · PPT 7
+## 实验02 · 两支箭头一起转 · PPT 9
 
 图解初始q=k=[1,0]，每位置转30°。位置1/3移到3/5，角度差仍60°，点积都为0.5。
 相加式正弦PE则根据位置生成同维向量，直接加到内容向量上。
@@ -66,10 +81,10 @@ print("移动后：", p["shifted_positions"], "方向：", p["shifted_angles_deg
 print("四维相加式正弦PE：", p["pe_width4"])
 """)
     md("""
-## 实验03 · 逐项加权汇总 · PPT 9–10、27
+## 实验03 · 逐项加权汇总 · PPT 12–13、30
 
 先看三个位置各自贡献什么，再沿第0维求和，得到喝这个位置的新向量。
-最后保留两候选概率，PPT第27页对比读取比例与预测概率。
+最后保留两候选概率，PPT第30页对比读取比例与预测概率。
 这些旧例使用第一课相同的人工参数，后半节才切换到新的Q/K/V投影。
 """)
     code("""
@@ -87,7 +102,7 @@ print("候选分数：", old["lm_logits"])
 print("候选概率：", old["lm_probabilities"])
 """)
     md(r"""
-## 实验04 · 三个可训练投影 · PPT 17–20
+## 实验04 · 三个可训练投影 · PPT 20–23
 
 $$
 Q=XW_Q,\qquad K=XW_K,\qquad V=XW_V.
@@ -106,7 +121,7 @@ for name, tensor in {"X": X, "W_Q": W_Q, "W_K": W_K, "W_V": W_V,
 print("喝的V：", X[-1] @ W_V)
 """)
     md(r"""
-## 实验05 · 一行到完整矩阵 · PPT 21–26、31
+## 实验05 · 一行到完整矩阵 · PPT 24–29、34
 
 行是query，列是key。第三行点积为[3,2,5]；每行按自己的可读范围归一化。
 
@@ -131,7 +146,7 @@ print("第二行手算：", .5*v[0] + .5*v[1])
 print("第三行不缩放/缩放后的权重：", raw_scores[-1].softmax(-1), weights[-1])
 """)
     md(r"""
-## 实验06 · 只改V · PPT 28
+## 实验06 · 只改V · PPT 31
 
 Q/K保持，修改已经生成的第0行V。先预测权重会不会变，再核对解析关系：
 
@@ -148,7 +163,7 @@ print("解析预测：\\n", weights[:, 0:1] * delta_v)
 torch.testing.assert_close(result_v["output"] - output, weights[:, 0:1] * delta_v)
 """)
     md("""
-## 实验07 · 只改K · PPT 29
+## 实验07 · 只改K · PPT 32
 
 Q/V保持，K[0]加[1,0]。主要观察第三行：它对第0列的原始分数从3变4。
 第一行只有一个可读位置，第二行Q=[0,2]与本次改变量正交，因此这两行权重保持。
@@ -164,7 +179,7 @@ print("第三行读取第0列：", weights[2, 0].item(), "→",
       result_k["weights"][2, 0].item())
 """)
     md("""
-## 实验08 · 修改未来输入 · PPT 30
+## 实验08 · 修改未来输入 · PPT 33
 
 位置与参数固定，把最后输入从[1,1]改为[4,-1]，重新生成Q/K/V。
 比较较早两行输出；同时检查最后一行确实改变，并运行无mask对照。
@@ -184,7 +199,7 @@ torch.testing.assert_close(output[:-1], masked_after[:-1])
 assert not torch.allclose(output[-1], masked_after[-1])
 """)
     md("""
-## 实验09 · 接回第二课的真实RoPE接口 · PPT 7、30
+## 实验09 · 接回第二课的真实RoPE接口 · PPT 9、33
 
 apply_rope复用第二课实现。按固定位置旋转Q/K，V保留，再进行因果Attention。
 固定未旋转内容，整体平移位置后点积保持；修改未来输入时，较早输出仍保持。
@@ -208,7 +223,7 @@ torch.testing.assert_close(rope_output[:-1], rope_future[:-1])
 ## 课堂检查与第四课
 
 解释一行读取权重、计算一次加权V、预测三种修改的结果。
-第32页多头图使用独立形状[1,3,4]，两头各2维；下一课实现多头和完整Block。
+第35页多头图使用独立形状[1,3,4]，两头各2维；下一课实现多头和完整Block。
 练习见 [exercises.md](exercises.md)，公式与页码对应见 [knowledge_code_map.md](knowledge_code_map.md)。
 """)
     notebook=nbf.v4.new_notebook(cells=cells,metadata={

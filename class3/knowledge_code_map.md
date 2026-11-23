@@ -7,36 +7,39 @@
 | 1 | 0–2 | 输入一句话，模型怎样继续写？ | 图示/检查 | [code/review.py](code/review.py) |
 | 2 | 2–3 | 从文字到下一个 token | 图示/检查 | [code/review.py](code/review.py) |
 | 3 | 3–4 | 展开一个 Block：两次变换，两条残差 | 图示/检查 | [code/attention.py](code/attention.py) |
-| 4 | 4–7 | BPE 训练：合并之后重新计数 | 实验01 | [code/review.py](code/review.py) |
-| 5 | 7–10 | BPE 编码：按已有规则继续合并 | 实验01 | [code/review.py](code/review.py) |
-| 6 | 10–13 | ID 是行号，Embedding 是可训练的表 | 实验01 | [code/review.py](code/review.py) |
-| 7 | 13–17 | 内容相同，位置不同 | 实验02 | [code/review.py](code/review.py) |
-| 8 | 17–19 | 先只更新“喝”这个位置 | 图示/检查 | [code/review.py](code/review.py) |
-| 9 | 19–21 | 三个位置各提供什么，分别读多少？ | 实验03 | [code/review.py](code/review.py) |
-| 10 | 21–24 | 先乘读取比例，再把同一列相加 | 实验03 | [code/review.py](code/review.py) |
-| 11 | 24–25 | 每个位置各算一次，整句仍有三个向量 | 图示/检查 | [code/review.py](code/review.py) |
-| 12 | 25–27 | 查营业时间：问题、索引、正文各管什么？ | 图示/检查 | [code/attention.py](code/attention.py) |
-| 13 | 27–28 | 换一个问题，同一份资料的读取比例也会变 | 图示/检查 | [code/attention.py](code/attention.py) |
-| 14 | 28–29 | Q：谁在读取，就用谁的查询向量 | 图示/检查 | [code/attention.py](code/attention.py) |
-| 15 | 29–30 | K：每个信息来源，怎样参与匹配？ | 图示/检查 | [code/attention.py](code/attention.py) |
-| 16 | 30–31 | V（Value）：实际带回什么内容？ | 图示/检查 | [code/attention.py](code/attention.py) |
-| 17 | 31–32 | 同一个输入，为什么生成三种表示？ | 图示/检查 | [code/attention.py](code/attention.py) |
-| 18 | 32–33 | 回到句子：每个位置都有 Q、K、V | 实验04 | [code/attention.py](code/attention.py) |
-| 19 | 33–34 | 只拿“喝”的 Q，把一次读取走完整 | 实验04 | [code/attention.py](code/attention.py) |
-| 20 | 34–36 | 从 X 算出 Q、K、V | 实验04 | [code/attention.py](code/attention.py) |
-| 21 | 36–38 | “喝”与每个位置分别算一个分数 | 实验05 | [code/attention.py](code/attention.py) |
-| 22 | 38–40 | 每个位置，都有一行匹配分数 | 实验05 | [code/attention.py](code/attention.py) |
-| 23 | 40–41 | 为什么要缩放点积分数？ | 实验05 | [code/attention.py](code/attention.py) |
-| 24 | 41–43 | 算“喜欢”时，不能提前看到“喝” | 实验05 | [code/attention.py](code/attention.py) |
-| 25 | 43–45 | 一行分数，怎样变成一行读取比例？ | 实验05 | [code/attention.py](code/attention.py) |
-| 26 | 45–47 | 用权重把 V 合成新的向量 | 实验05 | [code/attention.py](code/attention.py) |
-| 27 | 47–49 | 两次 Softmax，用在两个地方 | 实验03 | [code/review.py](code/review.py) |
-| 28 | 49–51 | “我”的 V 变了，哪些结果会变？ | 实验06 | [code/experiments.py](code/experiments.py) |
-| 29 | 51–53 | “我”的 K 变了，读取比例怎样变？ | 实验07 | [code/experiments.py](code/experiments.py) |
-| 30 | 53–55 | 改动“喝”，前两个位置会受影响吗？ | 实验08 | [code/experiments.py](code/experiments.py) |
-| 31 | 55–56 | 将刚才的计算写成程序 | 实验05 | [code/attention.py](code/attention.py) |
-| 32 | 56–57 | 多个头，分别计算几组匹配 | 图示/检查 | [code/attention.py](code/attention.py) |
-| 33 | 57–60 | 这张注意力矩阵说明了什么？ | 图示/检查 | [code/attention.py](code/attention.py) |
+| 4 | 4–6 | 用一个向量，看清两次残差相加 | 残差加法演示 | [code/review.py](code/review.py) |
+| 5 | 6–8 | BPE 训练：合并之后重新计数 | 实验01 | [code/review.py](code/review.py) |
+| 6 | 8–10 | BPE 编码：按已有规则继续合并 | 实验01 | [code/review.py](code/review.py) |
+| 7 | 10–11 | Embedding：按 ID 取出一行向量 | 实验01 | [code/review.py](code/review.py) |
+| 8 | 11–13 | 训练怎样修改 Embedding 的一行？ | 实验01 | [code/review.py](code/review.py) |
+| 9 | 13–16 | 内容相同，位置不同 | 实验02 | [code/review.py](code/review.py) |
+| 10 | 16–17 | 有了内容和位置，为什么还需要 Attention？ | 图示/检查 | [code/review.py](code/review.py) |
+| 11 | 17–19 | 先只更新“喝”这个位置 | 图示/检查 | [code/review.py](code/review.py) |
+| 12 | 19–21 | 三个位置各提供什么，分别读多少？ | 实验03 | [code/review.py](code/review.py) |
+| 13 | 21–24 | 先乘读取比例，再把同一列相加 | 实验03 | [code/review.py](code/review.py) |
+| 14 | 24–25 | 每个位置各算一次，整句仍有三个向量 | 图示/检查 | [code/review.py](code/review.py) |
+| 15 | 25–27 | 查营业时间：问题、索引、正文各管什么？ | 图示/检查 | [code/attention.py](code/attention.py) |
+| 16 | 27–28 | 换一个问题，同一份资料的读取比例也会变 | 图示/检查 | [code/attention.py](code/attention.py) |
+| 17 | 28–29 | Q：谁在读取，就用谁的查询向量 | 图示/检查 | [code/attention.py](code/attention.py) |
+| 18 | 29–30 | K：每个信息来源，怎样参与匹配？ | 图示/检查 | [code/attention.py](code/attention.py) |
+| 19 | 30–31 | V（Value）：实际带回什么内容？ | 图示/检查 | [code/attention.py](code/attention.py) |
+| 20 | 31–32 | 同一个输入，为什么生成三种表示？ | 图示/检查 | [code/attention.py](code/attention.py) |
+| 21 | 32–33 | 回到句子：每个位置都有 Q、K、V | 实验04 | [code/attention.py](code/attention.py) |
+| 22 | 33–34 | 只拿“喝”的 Q，把一次读取走完整 | 实验04 | [code/attention.py](code/attention.py) |
+| 23 | 34–36 | 从 X 算出 Q、K、V | 实验04 | [code/attention.py](code/attention.py) |
+| 24 | 36–38 | “喝”与每个位置分别算一个分数 | 实验05 | [code/attention.py](code/attention.py) |
+| 25 | 38–40 | 每个位置，都有一行匹配分数 | 实验05 | [code/attention.py](code/attention.py) |
+| 26 | 40–41 | 为什么要缩放点积分数？ | 实验05 | [code/attention.py](code/attention.py) |
+| 27 | 41–43 | 算“喜欢”时，不能提前看到“喝” | 实验05 | [code/attention.py](code/attention.py) |
+| 28 | 43–45 | 一行分数，怎样变成一行读取比例？ | 实验05 | [code/attention.py](code/attention.py) |
+| 29 | 45–47 | 用权重把 V 合成新的向量 | 实验05 | [code/attention.py](code/attention.py) |
+| 30 | 47–49 | 两次 Softmax，用在两个地方 | 实验03 | [code/review.py](code/review.py) |
+| 31 | 49–51 | “我”的 V 变了，哪些结果会变？ | 实验06 | [code/experiments.py](code/experiments.py) |
+| 32 | 51–53 | “我”的 K 变了，读取比例怎样变？ | 实验07 | [code/experiments.py](code/experiments.py) |
+| 33 | 53–55 | 改动“喝”，前两个位置会受影响吗？ | 实验08 | [code/experiments.py](code/experiments.py) |
+| 34 | 55–56 | 将刚才的计算写成程序 | 实验05 | [code/attention.py](code/attention.py) |
+| 35 | 56–57 | 多个头，分别计算几组匹配 | 图示/检查 | [code/attention.py](code/attention.py) |
+| 36 | 57–60 | 这张注意力矩阵说明了什么？ | 图示/检查 | [code/attention.py](code/attention.py) |
 
 ## 核心计算逐项对应
 

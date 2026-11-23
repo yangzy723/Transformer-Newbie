@@ -16,6 +16,8 @@ sys.path.insert(0,str(ROOT/'code'))
 from experiments import build_report
 
 FORMULAS={
+'block_numbers':r'\mathbf h_i=\mathbf x_i+\mathbf a_i,\quad\mathbf y_i=\mathbf h_i+\mathbf f_i',
+'embedding_update':r'\mathbf e_{\rm new}=\mathbf e_{\rm old}-\eta\mathbf g',
 'projection_roles':r'\mathbf Q=\mathbf X\mathbf W_Q,\quad\mathbf K=\mathbf X\mathbf W_K,\quad\mathbf V=\mathbf X\mathbf W_V',
 'mix_steps':r'\mathbf z=\sum_j a_j\mathbf v_j',
 'embedding':r'\mathbf X=\mathbf E[I]',
@@ -31,6 +33,7 @@ FORMULAS={
 'multihead':r'\operatorname{MultiHead}(\mathbf X)=\operatorname{Concat}(\mathbf Z^{(1)},\ldots,\mathbf Z^{(H)})\mathbf W_O',
 }
 CODE={
+'block_numbers':['h_i = x_i + attention_update','y_i = h_i + ffn_update'],
 'mix_steps':['weighted = weights_review[:, None] * values','context = weighted.sum(dim=0)'],
 'softmax':['weights = masked.softmax(dim=-1)'],
 'projections':['q = x @ w_q','k = x @ w_k','v = x @ w_v'],
@@ -65,7 +68,8 @@ def write_texts(items):
                    '\n> '+item['takeaway'],'\n**讲者备注**：'+item['notes']]
         guide += ['\n## '+title+'\n','\n'.join('- '+s for s in item['explanation']),
                   '\n**讲法、提问与预期回答**：'+item['notes'],'\n**要点**：'+item['takeaway']]
-        lab=f"实验{item['experiment']:02d}" if item['experiment'] else '图示/检查'
+        lab=('残差加法演示' if item['kind']=='block_numbers' else
+             f"实验{item['experiment']:02d}" if item['experiment'] else '图示/检查')
         guide += ["\n**课堂操作**："+item["operation"], f"\n**代码位置**：{lab}；[{item['source']}]({item['source']})。"]
         mapping += [f"| {n} | {start}–{end} | {item['title']} | {lab} | [{item['source']}]({item['source']}) |"]
         if item['kind'] in FORMULAS:
@@ -137,7 +141,8 @@ def build():
         thumb=c.image.copy();thumb.thumbnail((628,354))
         sheet.paste(thumb,((i%3)*640+6,(i//3)*374+6))
     sheet.save(ROOT/'assets/slides_preview.jpg',quality=93)
-    previews={'opening':'restart','block':'block_structure','query':'query_focus',
+    previews={'opening':'restart','block':'block_structure','residual':'block_numbers',
+              'embedding_update':'embedding_update','context_bridge':'context_bridge','query':'query_focus',
               'key':'key_focus','value':'value_focus','qkv_projection':'projection_roles',
               'architecture':'architecture','scores':'score_matrix','causality':'causality',
               'projection':'projections','positions':'positions','reading':'reading_focus',

@@ -3,11 +3,12 @@ from presentation import *
 from intro_pages import draw_intro
 from overview_pages import draw_overview
 from role_pages import draw_roles
+from scaffold_pages import draw_scaffold
 
 
 def draw(c, item, r):
     kind=item['kind']; b=r['base']; review=r['review']
-    if draw_overview(c,kind,r) or draw_roles(c,kind,r) or draw_intro(c,kind,r):
+    if draw_scaffold(c,kind,r) or draw_overview(c,kind,r) or draw_roles(c,kind,r) or draw_intro(c,kind,r):
         return
     if kind=='two_softmax':
         old=review['first_lesson']
@@ -49,20 +50,6 @@ def draw(c, item, r):
                    BLUE if i==4 else INK, bold=i==4)
         c.text(.80, 6.29, 4.35, .42, 'rank 是规则的执行顺序。', 20, MUTED)
         c.text(5.99, 6.29, 6.56, .42, '最终只有两个 token：你 / 喜欢喝奶茶', 22, BLUE, bold=True)
-    elif kind=='embedding':
-        e=review['embedding']; real=review['real_tokenizer']
-        label(c, .80, 2.23, '查表：选哪一行', w=5.2, color=BLUE, size=22)
-        c.text(.80, 3.00, 5.10, .42, '“我喜欢喝牛奶。”', 25, INK)
-        c.text(.80, 3.61, 5.10, .43, 'ID = '+str(real['ids']), 25, BLUE, bold=True)
-        equation(c, r'\mathbf X=\mathbf E[[300,304,262]]', .81, 4.38, 5.10, .55, size=27)
-        c.text(.80, 5.40, 5.15, .81, '词表大小 320，向量宽度 D：\nE 是 [320,D]，查出的 X 是 [3,D]。', 21, INK)
-        c.line(6.27, 2.25, 6.27, 6.71, LINE)
-        label(c, 6.77, 2.23, '训练：这一行的数怎样改变', w=5.8, color=TEAL, size=22)
-        c.text(6.77, 3.00, 5.72, .41, '预测 → loss → 梯度 → 参数更新', 23, INK)
-        label(c, 6.77, 3.78, '第二课二维小表：第 1 行，学习率 0.1', w=5.8, size=17)
-        c.text(6.77, 4.30, 5.70, .42, '[0.2, -0.1] − 0.1 × [1, 2]', 25, INK)
-        c.text(6.77, 4.96, 5.70, .42, '= [0.1, -0.3]', 28, TEAL, bold=True)
-        c.text(6.77, 5.76, 5.72, .79, 'backward 计算梯度；step 更新参数。\n同一 ID 出现多次，梯度累加到同一行。', 20, INK)
     elif kind=='positions':
         label(c, .80, 2.23, '相加式：位置进入输入向量', w=5.2, color=BLUE, size=21)
         equation(c, r'\mathbf x_p=\mathbf E[u_p]+\mathbf P_p', .80, 3.03, 5.20, .64, size=32)

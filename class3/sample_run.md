@@ -2,6 +2,15 @@
 
 以下输出来自仓库代码在CPU上的实际执行。完整精度与中间张量见[计算报告](assets/lesson_report.json)。
 
+## Notebook：残差加法
+
+子层输出已给定，分别执行两次逐分量相加。
+
+```text
+第一次残差： tensor([1., 2.], dtype=torch.float64) + tensor([ 0.3000, -0.2000], dtype=torch.float64) = tensor([1.3000, 1.8000], dtype=torch.float64)
+第二次残差： tensor([1.3000, 1.8000], dtype=torch.float64) + tensor([-0.1000,  0.4000], dtype=torch.float64) = tensor([1.2000, 2.2000], dtype=torch.float64)
+```
+
 ## code/attention.py
 
 ```text
