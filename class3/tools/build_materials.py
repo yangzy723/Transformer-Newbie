@@ -16,6 +16,7 @@ sys.path.insert(0,str(ROOT/'code'))
 from experiments import build_report
 
 FORMULAS={
+'projection_roles':r'\mathbf Q=\mathbf X\mathbf W_Q,\quad\mathbf K=\mathbf X\mathbf W_K,\quad\mathbf V=\mathbf X\mathbf W_V',
 'mix_steps':r'\mathbf z=\sum_j a_j\mathbf v_j',
 'embedding':r'\mathbf X=\mathbf E[I]',
 'positions':r'\theta_{p,i}=p\omega_i',
@@ -116,7 +117,7 @@ def build():
             f"第{n}页 {start}–{end}分钟\n{item['title']}\n"+
             '\n'.join(item['explanation'])+'\n讲解与问题：'+item['notes']+'\n课堂操作：'+item['operation']+
             f"\n代码：{item['source']}；Notebook实验：{item.get('experiment')}"+
-            ('\n数值说明：本页生活类比的读取比例为示意。' if item.get('illustration') else '\n主例数值来源：assets/lesson_report.json。完整精度计算，页面取近似值。'))
+            ('\n数值说明：本页为生活类比示意，用于说明Q/K/V的分工。' if item.get('illustration') else '\n主例数值来源：assets/lesson_report.json。完整精度计算，页面取近似值。'))
         canvases.append(c);metrics.append(dict(page=n,title=item['title'],text=c.text_metrics,ink=c.ink_boxes))
     assert minute==60
     validation=validate_layout(canvases)
@@ -136,7 +137,9 @@ def build():
         thumb=c.image.copy();thumb.thumbnail((628,354))
         sheet.paste(thumb,((i%3)*640+6,(i//3)*374+6))
     sheet.save(ROOT/'assets/slides_preview.jpg',quality=93)
-    previews={'architecture':'architecture','scores':'score_matrix','causality':'causality',
+    previews={'opening':'restart','block':'block_structure','query':'query_focus',
+              'key':'key_focus','value':'value_focus','qkv_projection':'projection_roles',
+              'architecture':'architecture','scores':'score_matrix','causality':'causality',
               'projection':'projections','positions':'positions','reading':'reading_focus',
               'weighted_sum':'mix_steps','qkv':'retrieval_roles','qkv_flow':'qkv_one_reader'}
     for name,kind in previews.items():

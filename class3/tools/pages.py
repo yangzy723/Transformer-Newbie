@@ -1,60 +1,15 @@
-"""第三课：同一句话的复习、计算与修改结果。"""
+"""第三课：按每页的计算关系安排版面与连接。"""
 from presentation import *
 from intro_pages import draw_intro
-
-
-def architecture(c):
-    label(c, .78, 2.17, '一次预测', color=BLUE)
-    steps=['文本：我喜欢喝', 'Tokenizer → ID 序列 [T]',
-           'Embedding → X [B,T,D]', 'Blocks × N → H [B,T,D]',
-           '最终 Norm → LM Head → 词表分数', 'Softmax → 概率 → 采样下一个 ID']
-    for i, name in enumerate(steps):
-        y=2.74+i*.65
-        node(c,.80,y,5.05,.45,name,fill=PALE if i==3 else 'F3F5F7',size=19,
-             color=BLUE if i==3 else INK)
-        if i<5: c.line(3.325,y+.47,3.325,y+.63,LINE,arrow=True)
-    c.text(.80,6.65,5.05,.30,'最后位置负责预测；新 ID 接回输入。',16,MUTED)
-    c.line(6.00, 2.18, 6.00, 6.65, LINE)
-    label(c, 6.43, 2.17, '展开一个 Block（Pre-Norm）', w=5.8, color=BLUE)
-    x=8.10; w=3.72
-    c.text(x, 2.62, w, .31, '输入 x：向量序列 [B,T,D]', 18, INK, center=True)
-    for y, name, fill in ((3.10, 'Norm', 'F0F3F6'), (3.74, 'Causal Self-Attention', PALE),
-                          (4.39, '+ x', 'F0F3F6'), (5.03, 'Norm → FFN', 'F0F3F6'),
-                          (5.68, '+ h', 'F0F3F6')):
-        node(c, x, y, w, .43, name, fill=fill, size=18)
-    for y1,y2 in ((2.95,3.08),(3.55,3.72),(4.19,4.37),(4.84,5.01),(5.49,5.66),(6.13,6.38)):
-        c.line(x+w/2, y1, x+w/2, y2, MUTED, arrow=True)
-    c.line(7.74, 2.91, 7.74, 4.60, LINE)
-    c.line(7.74, 2.91, 8.10, 2.91, LINE)
-    c.line(7.74, 4.60, 8.08, 4.60, LINE, arrow=True)
-    c.line(12.12, 4.86, 12.12, 5.89, LINE)
-    c.line(11.82, 4.86, 12.12, 4.86, LINE)
-    c.line(12.12, 5.89, 11.84, 5.89, LINE, arrow=True)
-    c.text(6.42, 3.76, 1.15, .70, 'Q/K\n加 RoPE', 16, TEAL)
-    c.line(7.52, 4.00, 8.08, 4.00, TEAL, arrow=True)
-    c.text(11.96, 4.57, .55, .27, 'h', 16, MUTED)
-    c.text(7.83, 6.46, 4.25, .32, '输出仍为向量序列 [B,T,D]', 18, BLUE, center=True)
+from overview_pages import draw_overview
+from role_pages import draw_roles
 
 
 def draw(c, item, r):
     kind=item['kind']; b=r['base']; review=r['review']
-    if draw_intro(c,kind,r):
+    if draw_overview(c,kind,r) or draw_roles(c,kind,r) or draw_intro(c,kind,r):
         return
-    if kind=='architecture':
-        architecture(c)
-    elif kind=='restart':
-        old=review['first_lesson']
-        label(c, .80, 2.26, '已知输入')
-        c.text(.80, 2.91, 6.55, .78, '我  喜欢  喝', 43, INK, bold=True)
-        c.line(3.5354, 3.74, 3.5354, 4.16, BLUE, arrow=True)
-        c.text(.80, 4.43, 6.40, .94, '用“喝”这个位置的最终向量，\n预测接下来可能出现的 token。', 24, INK)
-        c.line(7.40, 2.26, 7.40, 5.51, LINE)
-        label(c, 7.90, 2.26, '第一课的两候选算例', w=4.5)
-        bars(c, 7.90, 3.12, 4.62, old['candidate_labels'], old['lm_probabilities'], row_h=.90)
-        c.text(7.90, 5.02, 4.61, .40, '“喝”之前的信息怎样参与预测？', 21, BLUE, bold=True)
-        c.line(.80, 5.98, 12.50, 5.98, LINE)
-        c.text(.80, 6.26, 11.70, .44, '文字 → token ID → 内容与位置 → Attention → 词表分数', 23, INK)
-    elif kind=='two_softmax':
+    if kind=='two_softmax':
         old=review['first_lesson']
         for x, name, objects, scores, values, color in (
             (.80, 'Attention 内部', b['tokens'], old['scores'], old['weights'], BLUE),
@@ -74,7 +29,7 @@ def draw(c, item, r):
         c.line(6.15, 2.25, 6.15, 5.36, LINE)
         label(c, 6.65, 2.23, '一次合并，改变了相邻关系', w=5.9)
         c.text(6.65, 3.00, 5.90, .43, '我 / 喜 / 欢 / 喝 / 奶 / 茶', 23, MUTED)
-        c.line(9.52, 3.64, 9.52, 3.98, BLUE, arrow=True)
+        c.flow(9.52, 3.49, 9.52, 4.03,width=3.0,head=.14)
         c.text(6.65, 4.23, 5.90, .43, '我 / 喜欢 / 喝 / 奶 / 茶', 23, BLUE, bold=True)
         c.text(6.65, 4.93, 5.90, .78, '旧的“欢 + 喝”消失；\n新的“喜欢 + 喝”出现，下一轮要重新数。', 21, INK)
         code(c, ['counts[pair] += corpus[text]', 'pair = max(counts, key=counts.get)'], y=6.08)
@@ -176,7 +131,7 @@ def draw(c, item, r):
         c.text(.80,2.68,5.08,.30,'“喜欢”的原始分数：[2,2,4]',18,MUTED)
         rows=[['-∞' if b['forbidden'][i][j] else b['scores'][i][j] for j in range(3)] for i in range(3)]
         table(c,.80,3.06,5.08,rows,labels=b['tokens'],columns=b['tokens'],cell_h=.65,size=24,highlight_row=1)
-        c.text(6.10,3.92,1.14,.45,'→',30,BLUE,center=True)
+        c.flow(6.12,4.22,7.10,4.22,width=3.2,head=.16)
         c.text(5.95,4.66,1.48,.35,'Softmax',17,MUTED,center=True)
         label(c,7.60,2.23,'可见位置间的读取权重 A',w=4.9,color=BLUE,size=21)
         table(c,7.60,3.06,4.91,b['weights'],labels=b['tokens'],columns=b['tokens'],cell_h=.65,size=23,heat=True)
@@ -214,7 +169,7 @@ def draw(c, item, r):
             (5.44,'输出 Z[2]',vec(d['output_before'][2]),vec(d['output_after'][2]))):
             c.text(.80,y,2.14,.43,name,22,MUTED)
             c.text(3.10,y,4.00,.43,before,26,INK)
-            c.text(7.27,y,.50,.43,'→',25,MUTED,center=True)
+            c.flow(7.27,y+.23,7.84,y+.23,width=2.6,head=.12)
             c.text(8.05,y,4.43,.43,after,26,BLUE,bold=True)
         c.text(.80,6.41,11.70,.39,'前两行恰好不变：第一行只能读自身；第二行 Q=[0,2] 与 K 的改变量 [1,0] 点积为 0。',20,MUTED)
     elif kind=='causality':
@@ -251,15 +206,15 @@ def draw(c, item, r):
     elif kind=='multihead':
         label(c,.80,2.24,'结构示例：B=1，T=3，D=4；两个头，每头 2 维',w=11.7)
         node(c,.80,3.99,2.05,.71,'X [1,3,4]',size=21,color=BLUE)
-        c.line(2.87,4.35,3.40,4.35,LINE)
-        c.line(3.40,3.34,3.40,5.34,LINE)
+        c.line(2.87,4.35,3.40,4.35,BLUE,width=2.5)
+        c.line(3.40,3.34,3.40,5.34,BLUE,width=2.5)
         for i,yy in enumerate((2.95,4.95)):
-            c.line(3.40,yy+.39,3.98,yy+.39,LINE,arrow=True)
+            c.flow(3.40,yy+.39,3.88,yy+.39,color=BLUE if i==0 else TEAL,width=2.5,head=.12)
             node(c,4.01,yy,4.03,.79,f'Q/K/V 投影 {i+1} → Attention',fill=PALE if i==0 else 'EAF3F2',size=20,color=BLUE if i==0 else TEAL)
             c.text(4.01,yy+.96,4.03,.33,'各自输出 [1,3,2]',18,MUTED,center=True)
-            c.line(8.06,yy+.39,8.57,yy+.39,LINE)
-        c.line(8.57,3.34,8.57,5.34,LINE)
-        c.line(8.57,4.35,9.12,4.35,LINE,arrow=True)
+            c.line(8.06,yy+.39,8.57,yy+.39,BLUE if i==0 else TEAL,width=2.5)
+        c.line(8.57,3.34,8.57,5.34,BLUE,width=2.5)
+        c.flow(8.57,4.35,8.97,4.35,width=2.7,head=.12)
         node(c,9.15,3.93,3.35,.83,'拼接 → W_O',size=24,color=BLUE)
         c.text(9.15,5.02,3.35,.36,'输出 [1,3,4]',20,INK,center=True)
         c.text(.80,6.44,11.70,.41,'不同的投影产生各头的读取权重；拼接后，再用 W_O 合并信息。',22,INK)

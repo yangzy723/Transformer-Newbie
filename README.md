@@ -41,7 +41,7 @@ python3 class1/code/lesson.py
 
 从 **[class3 教学入口](class3/README.md)** 开始：
 
-- [28页课堂PPT](class3/class3_attention.pptx) / [PDF](class3/class3_attention.pdf)
+- [33页课堂PPT](class3/class3_attention.pptx) / [PDF](class3/class3_attention.pdf)
 - [逐页教案](class3/teacher_guide.md) / [学生讲义](class3/student_handout.md)
 - [课堂Notebook](class3/demo.ipynb)，含实际执行输出
 - [整套预览](class3/assets/slides_preview.jpg)

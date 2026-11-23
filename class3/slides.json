@@ -3,14 +3,14 @@
     "kind": "restart",
     "minutes": 2,
     "title": "输入一句话，模型怎样继续写？",
-    "subtitle": "从“我喜欢喝”回到前两课：已有的输入，怎样变成下一个 token 的概率。",
+    "subtitle": "已有文本进入模型，最后位置的表示经过输出层，得到下一个 token 的候选概率。",
     "takeaway": "今天要看清：一个 token 的向量怎样吸收上下文。",
     "explanation": [
       "最后位置的向量用于计算下一个token的词表分数。",
       "第一课两候选例：酒/牛奶概率约0.680/0.320。",
       "复习分词、向量、位置，再展开Attention怎样读取上下文。"
     ],
-    "notes": "请同学给出合理续写。模型用最后位置的最终向量计算下一个token的词表分数；第一课两候选结果仍是酒约0.680、牛奶约0.320。先沿输入流程复习，再解释这个位置怎样获得前文信息。",
+    "notes": "沿三段横向主流程读：已有输入→多层Transformer后的最后位置表示→输出层与概率。强调整句输入都参与处理，预测读取最后位置的最终向量。酒/牛奶概率仍是第一课两候选算例。",
     "experiment": null,
     "source": "code/review.py",
     "section": "复习",
@@ -18,20 +18,38 @@
   },
   {
     "kind": "architecture",
-    "minutes": 2,
+    "minutes": 1,
     "title": "从文字到下一个 token",
-    "subtitle": "分词和查表负责输入，Block 更新向量，LM Head 把向量变成词表分数。",
+    "subtitle": "沿文字、ID、向量、Block 和输出层，走完一次预测；采样结果再接回输入。",
     "takeaway": "Attention 位于 Block 内，输入和输出都是向量序列。",
     "explanation": [
-      "Tokenizer产生ID，Embedding查成向量。",
-      "Block逐层更新各位置的表示。",
-      "最终Norm和LM Head得到词表分数。"
+      "Tokenizer把文本变成ID，Embedding查出向量序列。",
+      "多层Block更新各位置的表示，最后Norm与LM Head得到词表分数。",
+      "Softmax后采样下一个ID，接回输入继续生成。"
     ],
-    "notes": "沿左列读生成过程，再展开右侧一个Pre-Norm Block。两条残差分别保留x与h，RoPE在Q/K上。问Attention后是否已经是概率，预期仍是向量。B批量、T位置数、D宽度。",
+    "notes": "沿上排从左往右，再沿下排从右往左走完模型。下一页再展开Block，避免把整体流程与内部结构挤在同一张图里。",
     "experiment": null,
     "source": "code/review.py",
     "section": "复习",
     "operation": "沿流程图讲解；先不运行代码。"
+  },
+  {
+    "kind": "block_structure",
+    "minutes": 1,
+    "title": "展开一个 Block：两次变换，两条残差",
+    "subtitle": "Attention 读取可见上下文，FFN 处理各位置的表示；两条残差把原有信息加回来。",
+    "explanation": [
+      "先Norm，再做Causal Self-Attention，加回输入x得到h。",
+      "再Norm与FFN，加回h得到Block输出。",
+      "整个Block保持[B,T,D]向量序列形状。"
+    ],
+    "takeaway": "整个Block保持[B,T,D]向量序列形状。",
+    "notes": "沿上下两排连续走完整个Block。上排残差保留x，下排残差保留h。RoPE在Attention内部旋转Q/K；因果Mask限制可读范围。只认结构，不在此展开Norm或FFN算法。",
+    "operation": "沿两条较粗的主路线讲计算，用较细的灰线指出两次残差。",
+    "section": "复习",
+    "experiment": null,
+    "source": "code/attention.py",
+    "illustration": false
   },
   {
     "kind": "bpe_train",
@@ -205,8 +223,80 @@
     "illustration": true
   },
   {
+    "kind": "query_focus",
+    "minutes": 1,
+    "title": "Q：谁在读取，就用谁的查询向量",
+    "subtitle": "先只看“喝”：它的输入生成一个 Q，用同一个 Q 去比较所有可见位置的 K。",
+    "explanation": [
+      "Q是Query，承担发起这一次匹配的角色。",
+      "喝的Q来自喝这个位置当前层的输入，通过W_Q生成。",
+      "换成喜欢读取时，就使用喜欢自己的Q，重新计算它的读取比例。"
+    ],
+    "takeaway": "换成喜欢读取时，就使用喜欢自己的Q，重新计算它的读取比例。",
+    "notes": "把同一个喝的Q沿三条蓝色路线分别指向三个K。Q是数值向量，中文查询需求只是上一页类比。它的内容来自当前层输入，不给各维固定语言学标签。 实际计算时，各位置的查询可以并行进行；这里逐个讲是为了看清输出属于谁。",
+    "operation": "请同学指出当前读取者，再指出这次比较中保持相同的Q。",
+    "section": "Attention",
+    "experiment": null,
+    "source": "code/attention.py",
+    "illustration": false
+  },
+  {
+    "kind": "key_focus",
+    "minutes": 1,
+    "title": "K：每个信息来源，怎样参与匹配？",
+    "subtitle": "当前 Q 分别与各位置的 K 做点积，每个来源因此得到自己的匹配分数。",
+    "explanation": [
+      "K是Key，提供被查询时使用的匹配特征。",
+      "同一个Q分别遇到不同K，会得到各自的匹配分数。",
+      "匹配分数由Q和K共同决定，随后才经过缩放、Mask与Softmax。"
+    ],
+    "takeaway": "匹配分数由Q和K共同决定，随后才经过缩放、Mask与Softmax。",
+    "notes": "对照营业时间索引的类比。K与同位置V保持对应，但用于匹配的K不必等于实际汇总的V。此页只讲关系；实际[3,2,5]在后面的点积页逐项计算。",
+    "operation": "沿一个Q到三个K，再到三个分数的路线讲解，暂不代入数字。",
+    "section": "Attention",
+    "experiment": null,
+    "source": "code/attention.py",
+    "illustration": false
+  },
+  {
+    "kind": "value_focus",
+    "minutes": 1,
+    "title": "V（Value）：实际带回什么内容？",
+    "subtitle": "保持 Q/K 原值，只把 V 中的营业时间从“22点打烊”改成“23点打烊”。",
+    "explanation": [
+      "V是Value，提供真正参与加权汇总的内容。",
+      "固定Q/K时，读取比例保持不变。",
+      "即使读取比例相同，V内容改变，汇总得到的信息仍会改变。"
+    ],
+    "takeaway": "即使读取比例相同，V内容改变，汇总得到的信息仍会改变。",
+    "notes": "生活类比只改正文：问题和营业时间索引固定，22点改为23点。对应后面的控制变量实验，直接修改中间V以分离其作用；修改原始X一般还会影响Q/K。模型实际混合的是向量。",
+    "operation": "先问同学哪一部分保持，再比较正文变化会影响什么。",
+    "section": "Attention",
+    "experiment": null,
+    "source": "code/attention.py",
+    "illustration": true
+  },
+  {
+    "kind": "projection_roles",
+    "minutes": 1,
+    "title": "同一个输入，为什么生成三种表示？",
+    "subtitle": "给查询、匹配和内容各一组可学习参数，让三件事可以分别调整。",
+    "explanation": [
+      "同一输入分别经过W_Q、W_K、W_V，得到Q、K、V。",
+      "Q/K服务于匹配，V服务于信息传递，两者可以学习不同的特征。",
+      "三张 W 分别在所有位置共享；各位置根据自己的输入生成 Q、K、V。"
+    ],
+    "takeaway": "三张 W 分别在所有位置共享；各位置根据自己的输入生成 Q、K、V。",
+    "notes": "第一课直接用输入向量参与匹配和汇总也能计算Attention。三组投影提供更灵活的查询、匹配和内容表示，不能说不分开就无法计算。可在点积页追问：本例喜欢查询喝的原始分数4，喝查询喜欢为2，读取方向可影响原始分数。",
+    "operation": "逐条指出同一输入经过哪一张W，再对应到三种角色。",
+    "section": "Attention",
+    "experiment": null,
+    "source": "code/attention.py",
+    "illustration": false
+  },
+  {
     "kind": "token_roles",
-    "minutes": 2,
+    "minutes": 1,
     "title": "回到句子：每个位置都有 Q、K、V",
     "subtitle": "每个位置都生成查询、匹配和内容三种表示，读取时遵守可见范围。",
     "takeaway": "轮到谁读取，就用谁的Q与允许读取位置的K比较。",
@@ -215,7 +305,7 @@
       "Q用于自己查询；K用于被查询；V用于被读取。",
       "轮到谁读取，就用谁的Q与允许读取位置的K比较。"
     ],
-    "notes": "把类比中的角色接回模型：Q、K、V都是数值向量，不是模型现场写出的中文问题或标题。三个token各有三份表示，不把我、喜欢、喝分别分配成Q、K、V。所有位置共用三组投影参数，下一页先看一次读取路线，再具体算投影。",
+    "notes": "用表格确认每个token都生成自己的Q、K、V。重点读喝这一行：三个向量都属于同一个位置，分别承担不同角色。所有位置使用相同的三组投影参数。",
     "experiment": 4,
     "source": "code/attention.py",
     "section": "Attention",
@@ -240,7 +330,7 @@
   },
   {
     "kind": "projections",
-    "minutes": 3,
+    "minutes": 2,
     "title": "从 X 算出 Q、K、V",
     "subtitle": "从第一课的旧结果，切换到本节固定的 X 和三张 W，从头计算每一步。",
     "takeaway": "线性投影重组输入特征，得到用于匹配与汇总的表示。",
@@ -291,7 +381,7 @@
   },
   {
     "kind": "scale",
-    "minutes": 2,
+    "minutes": 1,
     "title": "为什么要缩放点积分数？",
     "subtitle": "先看数值的变化，再理解缩放怎样影响 Softmax 的集中程度。",
     "takeaway": "缩放控制分数尺度，使 Softmax 更适合训练。",
@@ -351,7 +441,7 @@
       "第二行[1.5,-0.5]。",
       "第三行约[2.555,-0.912]。"
     ],
-    "notes": "将正式计算得到的A、V与Z对齐。手算0.5[1,-1]+0.5[2,0]=[1.5,-0.5]。从第9页旧例回忆相同的逐项乘法与求和规则，但本节Q/K/V由新的三张W生成，数值不同。Z仍是[3,2]向量序列。",
+    "notes": "将正式计算得到的A、V与Z对齐。手算0.5[1,-1]+0.5[2,0]=[1.5,-0.5]。从第10页旧例回忆相同的逐项乘法与求和规则，但本节Q/K/V由新的三张W生成，数值不同。Z仍是[3,2]向量序列。",
     "experiment": 5,
     "source": "code/attention.py",
     "section": "Attention",
@@ -385,7 +475,7 @@
       "Q/K不变，权重不变。",
       "各行输出变化为A_i0×[2,0]。"
     ],
-    "notes": "接第11页索引与正文的分工。用clone保留基线，固定Q/K，只改V。输出变化[2,0]、[1,0]、约[0.357,0]，对应A第0列乘[2,0]。先预测，再运行实验06。",
+    "notes": "接第12页索引与正文的分工。用clone保留基线，固定Q/K，只改V。输出变化[2,0]、[1,0]、约[0.357,0]，对应A第0列乘[2,0]。先预测，再运行实验06。",
     "experiment": 6,
     "source": "code/experiments.py",
     "section": "Attention",
@@ -419,7 +509,7 @@
       "开mask：前两行不变，最后变化。",
       "关mask：较早行也会受影响。"
     ],
-    "notes": "检验第19页因果约束。参数与位置固定，最后输入变了，前两行可读K/V没变。无mask对照前两行会变；最后行两种情况都变化。实验09用实际RoPE重验。",
+    "notes": "检验第24页因果约束。参数与位置固定，最后输入变了，前两行可读K/V没变。无mask对照前两行会变；最后行两种情况都变化。实验09用实际RoPE重验。",
     "experiment": 8,
     "source": "code/experiments.py",
     "section": "Attention",
@@ -461,7 +551,7 @@
   },
   {
     "kind": "quiz",
-    "minutes": 4,
+    "minutes": 3,
     "title": "这张注意力矩阵说明了什么？",
     "subtitle": "解释一行权重，算一个输出，再判断修改中间量会影响哪里。",
     "takeaway": "能读懂矩阵并解释干预结果，就能继续组装完整 Block。",
@@ -470,7 +560,7 @@
       "用第二行0.5[1,-1]+0.5[2,0]，得到[1.5,-0.5]。",
       "只改V不改A；改K可能改变A，实际影响取决于Q和可读范围。"
     ],
-    "notes": "参考回答：行query、列key；喜欢这行读取我和喜欢，因果mask屏蔽喝。输出[1.5,-0.5]。只改V不改变A；改K可能改变A。若混淆读取比例和预测概率回第22页；汇总不清回第9页或第21页。请同学再说明为什么三个位置仍有三个输出。",
+    "notes": "参考回答：行query、列key；喜欢这行读取我和喜欢，因果mask屏蔽喝。输出[1.5,-0.5]。只改V不改变A；改K可能改变A。若混淆读取比例和预测概率回第27页；汇总不清回第10页或第26页。请同学再说明为什么三个位置仍有三个输出。",
     "experiment": null,
     "source": "code/attention.py",
     "section": "Attention",
