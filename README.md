@@ -47,3 +47,15 @@ python3 class1/code/lesson.py
 - [整套预览](class3/assets/slides_preview.jpg)
 
 三个实验分别修改V、K和未来输入，观察权重、输出与因果性。下一课接多头、输出投影、残差、Norm和FFN，后续安排见[课程地图](class3/course_map.md)。
+
+## 第四节课：FFN、激活与采样
+
+**28页连续课程，约60分钟。** 衔接 Attention 与完整 Block，逐项算清 FFN，再从最后位置的表示走到词表概率与下一 token 的选择。
+
+从 **[class4 教学入口](class4/README.md)** 开始：
+
+- [28页PPT](class4/class4_ffn_activation_sampling.pptx) / [PDF](class4/class4_ffn_activation_sampling.pdf)
+- [整套预览](class4/assets/slides_preview.jpg) / [逐页教案](class4/teacher_guide.md)
+- [18个已执行代码单元的Notebook](class4/demo.ipynb)
+
+矩阵手算、激活曲线、门控结构、概率区间与采样结果融入同一课堂顺序；所有数值可以离线复算。

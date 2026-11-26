@@ -1,0 +1,2 @@
+# 复用系列现有的制作依赖；核心计算不依赖第三方包。
+-r ../class3/requirements-tools.txt
